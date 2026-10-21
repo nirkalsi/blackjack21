@@ -1,4 +1,4 @@
-package nir.com.rouletteroyale;
+package nir.com.blackjack21;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -9,10 +9,10 @@ import android.view.MenuItem;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
-public class MainActivity extends Activity implements RouletteView.Listener, RemoveAdsManager.Listener {
-    private static final String PREFS = "rouletteroyale", KEY = "state";
+public class MainActivity extends Activity implements BlackjackView.Listener, RemoveAdsManager.Listener {
+    private static final String PREFS = "blackjack21", KEY = "state";
     private static final int MENU_REMOVE_ADS = 1;
-    private RouletteView game;
+    private BlackjackView game;
     private AdsManager ads;
     private RemoveAdsManager removeAds;
     private String removeAdsPrice;
@@ -21,7 +21,7 @@ public class MainActivity extends Activity implements RouletteView.Listener, Rem
         super.onCreate(b);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        game = new RouletteView(this);
+        game = new BlackjackView(this);
         game.setListener(this);
         root.addView(game, new LinearLayout.LayoutParams(-1, 0, 1f));
         LinearLayout bannerBox = new LinearLayout(this);

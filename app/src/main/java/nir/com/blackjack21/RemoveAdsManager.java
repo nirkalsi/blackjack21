@@ -1,4 +1,4 @@
-package nir.com.rouletteroyale;
+package nir.com.blackjack21;
 
 import android.app.Activity;
 import android.content.SharedPreferences;

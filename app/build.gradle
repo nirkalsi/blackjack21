@@ -1,9 +1,9 @@
 plugins { id 'com.android.application' }
 android {
-    namespace 'nir.com.rouletteroyale'
+    namespace 'nir.com.blackjack21'
     compileSdk 36
     defaultConfig {
-        applicationId 'nir.com.rouletteroyale'
+        applicationId 'nir.com.blackjack21'
         minSdk 24
         targetSdk 36
         versionCode 1
