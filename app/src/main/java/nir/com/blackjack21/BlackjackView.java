@@ -12,7 +12,9 @@ import java.util.Random;
 public class BlackjackView extends View {
     public interface Listener {
         void onOutOfCoins();
-        void onSpinComplete(int handsDone);
+        void onSpinComplete(int handsDone, long profit, long bet);
+        void onBigWin(long win, long bet);
+        void onLevelUp(int level, long reward);
         void saveState();
     }
 
@@ -30,6 +32,9 @@ public class BlackjackView extends View {
     private int betIdx = 1;
     private long handsDone = 0;
     private long lastRegenAt = System.currentTimeMillis();
+    private long xp = 0;
+    private int level = 1;
+    private long levelFlashUntil = 0;
 
     // phases: 0=betting, 1=player turn, 2=dealer turn, 3=result
     private int phase = 0;
@@ -45,7 +50,11 @@ public class BlackjackView extends View {
 
     public void addCoins(long n) { balance += n; invalidate(); if (listener != null) listener.saveState(); }
 
-    public String serialize() { return balance + ";" + betIdx + ";" + handsDone + ";" + lastRegenAt; }
+    public int getLevel() { return level; }
+    public long getSpinsDone() { return handsDone; }
+    private long xpNeeded() { return level * 500L; }
+
+    public String serialize() { return balance + ";" + betIdx + ";" + handsDone + ";" + lastRegenAt + ";" + xp + ";" + level; }
 
     public void restore(String s) {
         try {
@@ -54,6 +63,8 @@ public class BlackjackView extends View {
             betIdx = Integer.parseInt(a[1]);
             handsDone = Long.parseLong(a[2]);
             lastRegenAt = Long.parseLong(a[3]);
+            if (a.length > 4) xp = Long.parseLong(a[4]);
+            if (a.length > 5) level = Math.max(1, Integer.parseInt(a[5]));
         } catch (Exception ignored) {}
     }
 
@@ -77,6 +88,7 @@ public class BlackjackView extends View {
         long bet = BETS[betIdx];
         if (balance < bet) { if (listener != null) listener.onOutOfCoins(); return; }
         balance -= bet;
+        xp += BETS[betIdx];
         if (doubled) doubled = false;
         player.clear(); dealer.clear();
         player.add(draw()); dealer.add(draw()); player.add(draw()); dealer.add(draw());
@@ -127,7 +139,19 @@ public class BlackjackView extends View {
         else { message = "Dealer wins"; lastWin = 0; }
         phase = 3;
         handsDone++;
-        if (listener != null) { listener.onSpinComplete((int) handsDone); listener.saveState(); }
+        while (xp >= xpNeeded()) {
+            xp -= xpNeeded();
+            level++;
+            long reward = 150L * level;
+            balance += reward;
+            levelFlashUntil = System.currentTimeMillis() + 2000;
+            if (listener != null) listener.onLevelUp(level, reward);
+        }
+        if (listener != null) {
+            if (pBJ && !dBJ) listener.onBigWin(lastWin, bet);
+            listener.onSpinComplete((int) handsDone, lastWin, bet);
+            listener.saveState();
+        }
         if (balance < BETS[0] && listener != null) listener.onOutOfCoins();
         invalidate();
     }
@@ -179,7 +203,24 @@ public class BlackjackView extends View {
         p.setFakeBoldText(false);
         p.setColor(Color.WHITE);
         p.setTextSize(h * 0.032f);
-        cv.drawText("COINS  " + balance, w / 2, h * 0.115f, p);
+        cv.drawText("COINS  " + balance, w / 2, h * 0.108f, p);
+        // level + xp bar
+        p.setTextSize(h * 0.022f);
+        p.setColor(Color.rgb(168, 203, 184));
+        cv.drawText("LV " + level, w * 0.14f, h * 0.142f, p);
+        float barL = w * 0.24f, barR = w * 0.76f, barY = h * 0.130f, barH = w * 0.022f;
+        rf.set(barL, barY, barR, barY + barH);
+        p.setColor(Color.rgb(18, 80, 60)); cv.drawRoundRect(rf, 8, 8, p);
+        float frac = Math.min(1f, xp / (float) xpNeeded());
+        rf.set(barL, barY, barL + (barR - barL) * frac, barY + barH);
+        p.setColor(Color.rgb(255, 215, 0)); cv.drawRoundRect(rf, 8, 8, p);
+        if (System.currentTimeMillis() < levelFlashUntil) {
+            p.setTextSize(h * 0.035f);
+            p.setColor(Color.rgb(255, 215, 0));
+            p.setFakeBoldText(true);
+            cv.drawText("LEVEL UP!", w / 2, h * 0.19f, p);
+            p.setFakeBoldText(false);
+        }
 
         float cw = w * 0.15f, ch = cw * 1.45f;
         // dealer row
