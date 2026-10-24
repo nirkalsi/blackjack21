@@ -225,11 +225,11 @@ public class BlackjackView extends View {
         float cw = w * 0.15f, ch = cw * 1.45f;
         // dealer row
         p.setColor(Color.rgb(224, 201, 166)); p.setTextSize(h * 0.026f);
-        cv.drawText(phase >= 3 || phase == 2 ? "DEALER  " + score(dealer) : "DEALER", w / 2, h * 0.16f, p);
+        cv.drawText(phase >= 3 || phase == 2 ? "DEALER  " + score(dealer) : "DEALER", w / 2, h * 0.175f, p);
         float dx = w / 2 - (dealer.size() * (cw + 8)) / 2f;
         for (int i = 0; i < dealer.size(); i++) {
             boolean hide = (phase == 1 && i == 1);
-            drawCard(cv, dealer.get(i), dx + i * (cw + 8), h * 0.18f, cw, ch, hide);
+            drawCard(cv, dealer.get(i), dx + i * (cw + 8), h * 0.19f, cw, ch, hide);
         }
         // player row
         p.setColor(Color.rgb(224, 201, 166)); p.setTextSize(h * 0.026f);
@@ -240,17 +240,17 @@ public class BlackjackView extends View {
         // message
         p.setColor(lastWin > 0 ? Color.rgb(124, 252, 0) : Color.WHITE);
         p.setTextSize(h * 0.034f); p.setFakeBoldText(true);
-        cv.drawText(message, w / 2, h * 0.69f, p);
+        cv.drawText(message, w / 2, h * 0.665f, p);
         p.setFakeBoldText(false);
 
         float bh = h * 0.062f, bw = w * 0.28f, gap = w * 0.04f;
         if (phase == 0 || phase == 3) {
             // bet selector
             p.setColor(Color.WHITE); p.setTextSize(h * 0.03f);
-            cv.drawText("BET  " + BETS[betIdx], w / 2, h * 0.75f, p);
-            drawButton(cv, w / 2 - bw - gap, h * 0.72f, bw, bh, "- BET", Color.rgb(20, 80, 60), true);
-            drawButton(cv, w / 2 + gap, h * 0.72f, bw, bh, "+ BET", Color.rgb(20, 80, 60), true);
-            drawButton(cv, w / 2 - bw * 1.2f, h * 0.80f, bw * 2.4f, bh, "DEAL", Color.rgb(198, 40, 40), true);
+            cv.drawText("BET  " + BETS[betIdx], w / 2, h * 0.715f, p);
+            drawButton(cv, w / 2 - bw - gap, h * 0.75f, bw, bh, "- BET", Color.rgb(20, 80, 60), true);
+            drawButton(cv, w / 2 + gap, h * 0.75f, bw, bh, "+ BET", Color.rgb(20, 80, 60), true);
+            drawButton(cv, w / 2 - bw * 1.2f, h * 0.83f, bw * 2.4f, bh, "DEAL", Color.rgb(198, 40, 40), true);
         } else if (phase == 1) {
             drawButton(cv, w / 2 - bw * 1.5f - gap, h * 0.76f, bw, bh, "HIT", Color.rgb(20, 80, 60), true);
             drawButton(cv, w / 2 - bw / 2, h * 0.76f, bw, bh, "STAND", Color.rgb(198, 40, 40), true);
@@ -273,11 +273,11 @@ public class BlackjackView extends View {
         float x = e.getX(), y = e.getY();
         float bh = h * 0.062f, bw = w * 0.28f, gap = w * 0.04f;
         if (phase == 0 || phase == 3) {
-            if (y >= h * 0.72f && y <= h * 0.72f + bh) {
+            if (y >= h * 0.75f && y <= h * 0.75f + bh) {
                 if (x >= w / 2 - bw - gap && x <= w / 2 - gap && betIdx > 0) { betIdx--; invalidate(); if (listener != null) listener.saveState(); }
                 if (x >= w / 2 + gap && x <= w / 2 + gap + bw && betIdx < BETS.length - 1) { betIdx++; invalidate(); if (listener != null) listener.saveState(); }
             }
-            if (y >= h * 0.80f && y <= h * 0.80f + bh && x >= w / 2 - bw * 1.2f && x <= w / 2 + bw * 1.2f) deal();
+            if (y >= h * 0.83f && y <= h * 0.83f + bh && x >= w / 2 - bw * 1.2f && x <= w / 2 + bw * 1.2f) deal();
         } else if (phase == 1) {
             if (y >= h * 0.76f && y <= h * 0.76f + bh) {
                 if (x >= w / 2 - bw * 1.5f - gap && x <= w / 2 - bw * 0.5f - gap) hit();
