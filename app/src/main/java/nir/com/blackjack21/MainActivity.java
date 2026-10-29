@@ -96,12 +96,14 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
     private Button addRowButton(LinearLayout row, String label, View.OnClickListener l, int color) {
         Button btn = new Button(this);
         btn.setText(label);
-        btn.setTextSize(11f);
+        btn.setTextSize(12f);
+        btn.setSingleLine(true);
+        btn.setPadding(0, 0, 0, 0);
         btn.setTypeface(Typeface.DEFAULT_BOLD);
         btn.setTextColor(Color.WHITE);
         btn.setBackground(pill(color, 22));
         btn.setMinHeight(0); btn.setMinimumHeight(0);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(42), 1f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(46), 1f);
         lp.setMargins(dp(4), 0, dp(4), 0);
         row.addView(btn, lp);
         btn.setOnClickListener(l);

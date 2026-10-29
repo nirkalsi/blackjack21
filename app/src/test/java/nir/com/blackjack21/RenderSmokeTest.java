@@ -19,7 +19,7 @@ import org.robolectric.shadows.ShadowAlertDialog;
 
 /** Pixel-render smoke: game view + full screen + reward/daily/missions/shop overlays. */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 34)
+@Config(sdk = 34, qualifiers = "xxhdpi")
 public class RenderSmokeTest {
 
     private void renderView(View v, int w, int h, String path) throws Exception {
@@ -47,7 +47,12 @@ public class RenderSmokeTest {
     private void renderLatestDialog(String tag) throws Exception {
         AlertDialog d = ShadowAlertDialog.getLatestAlertDialog();
         assertNotNull("no dialog for " + tag, d);
-        renderView(d.getWindow().getDecorView(), 1000, 1700, "/tmp/renders/" + tag + ".png");
+        View content = d.getWindow().getDecorView();
+        content.measure(View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.AT_MOST),
+                        View.MeasureSpec.makeMeasureSpec(1700, View.MeasureSpec.AT_MOST));
+        // slack: shadow decor mis-measures wrapped TextViews; extra height avoids edge clipping
+        renderView(content, Math.max(content.getMeasuredWidth(), 400),
+                   Math.max(content.getMeasuredHeight(), 200) + 80, "/tmp/renders/" + tag + ".png");
     }
 
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -101,6 +106,11 @@ public class RenderSmokeTest {
         v.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
                   View.MeasureSpec.makeMeasureSpec(2243, View.MeasureSpec.EXACTLY));
         callPrivate(v, "deal");
+        { // accounting: 500 default balance minus default bet 10 must equal 490
+            java.lang.reflect.Field bf = BlackjackView.class.getDeclaredField("balance");
+            bf.setAccessible(true);
+            org.junit.Assert.assertEquals("deal must debit exactly the displayed bet", 490L, bf.getLong(v));
+        }
         // rewind card fly-in timestamps so the render shows the settled hand
         for (String field : new String[]{"playerCardT", "dealerCardT"}) {
             java.lang.reflect.Field fl = BlackjackView.class.getDeclaredField(field);
