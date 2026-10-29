@@ -401,4 +401,9 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
     @Override public void onProductsReady() { }
 
     @Override protected void onPause() { super.onPause(); saveState(); }
+
+    @Override protected void onDestroy() {
+        GameSounds.release();
+        super.onDestroy();
+    }
 }

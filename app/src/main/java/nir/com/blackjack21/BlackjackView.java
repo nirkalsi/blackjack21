@@ -104,7 +104,7 @@ public class BlackjackView extends View {
     }
 
     private void deal() {
-        GameSounds.play(GameSounds.CARD);
+        GameSounds.play(getContext(), GameSounds.CARD);
         long bet = BETS[betIdx];
         if (balance < bet) { if (listener != null) listener.onOutOfCoins(); return; }
         balance -= bet;
@@ -158,12 +158,12 @@ public class BlackjackView extends View {
         boolean pBJ = player.size() == 2 && ps == 21;
         boolean dBJ = dealer.size() == 2 && ds == 21;
         if (ps > 21) { message = "Bust - dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
-        else if (pBJ && !dBJ) { long w = bet + bet * 3 / 2; balance += w; GameSounds.play(GameSounds.BIG_WIN); message = "Blackjack!"; lastWin = w - bet; resultKind = 3; resultAmount = lastWin; }
+        else if (pBJ && !dBJ) { long w = bet + bet * 3 / 2; balance += w; GameSounds.play(getContext(), GameSounds.BIG_WIN); message = "Blackjack!"; lastWin = w - bet; resultKind = 3; resultAmount = lastWin; }
         else if (dBJ && !pBJ) { message = "Dealer blackjack"; lastWin = 0; resultKind = 0; resultAmount = bet; }
-        else if (ds > 21) { balance += bet * 2; GameSounds.play(GameSounds.WIN); message = "Dealer busts!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
-        else if (ps > ds) { balance += bet * 2; GameSounds.play(GameSounds.WIN); message = "You win!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
+        else if (ds > 21) { balance += bet * 2; GameSounds.play(getContext(), GameSounds.WIN); message = "Dealer busts!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
+        else if (ps > ds) { balance += bet * 2; GameSounds.play(getContext(), GameSounds.WIN); message = "You win!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
         else if (ps == ds) { balance += bet; message = "Push - bet returned"; lastWin = 0; resultKind = 2; resultAmount = 0; }
-        else { GameSounds.play(GameSounds.LOSE); message = "Dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
+        else { GameSounds.play(getContext(), GameSounds.LOSE); message = "Dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
         resultAt = System.currentTimeMillis();
         if (resultKind == 1 || resultKind == 3) spawnParticles();
         phase = 3;
@@ -374,6 +374,16 @@ public class BlackjackView extends View {
         p.setFakeBoldText(false);
         p.setTextSize(h * 0.011f); p.setColor(0x99FFFFFF);
         cv.drawText("LEVEL", lvX, lvY + lvR * 1.55f, p);
+        // sound toggle
+        float spX = w * 0.93f, spY = h * 0.042f, spR = w * 0.045f;
+        p.setColor(0x66000000);
+        cv.drawCircle(spX, spY, spR, p);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2); p.setColor(0x55FFFFFF);
+        cv.drawCircle(spX, spY, spR, p);
+        p.setStyle(Paint.Style.FILL);
+        p.setTextSize(spR * 0.9f); p.setTextAlign(Paint.Align.CENTER);
+        cv.drawText(GameSounds.isEnabled(getContext()) ? "\uD83D\uDD0A" : "\uD83D\uDD07", spX, spY + spR * 0.32f, p);
+
 
         // coin pill
         float pillW = w * 0.34f, pillH = h * 0.034f, pillX = w / 2f - pillW / 2f + w * 0.06f, pillY = h * 0.028f;
@@ -594,6 +604,12 @@ public class BlackjackView extends View {
     @Override public boolean onTouchEvent(MotionEvent e) {
         int w = getWidth(), h = getHeight();
         float x = e.getX(), y = e.getY();
+        if (Math.hypot(x - w * 0.93f, y - getHeight() * 0.042f) <= w * 0.06f) {
+            GameSounds.toggle(getContext());
+            invalidate();
+            return true;
+        }
+
         float bh = h * 0.058f;
         if (e.getAction() == MotionEvent.ACTION_DOWN) {
             lastTouchAt = System.currentTimeMillis();
