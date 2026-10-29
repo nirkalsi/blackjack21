@@ -69,7 +69,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         if (sp.getString("first_run", null) == null)
             sp.edit().putString("first_run", today()).apply();
 
-        handler.postDelayed(this::maybeDailyBonus, 1200);
+        if (sp.getBoolean("played_before", false)) handler.postDelayed(this::maybeDailyBonus, 1200);
         handler.postDelayed(this::maybeDay2Offer, 2500);
     }
 
@@ -325,7 +325,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
     private void maybeDay2Offer() {
         if (sp.getBoolean("ads_removed", false) || sp.getBoolean("offer_day2_done", false)) return;
         String first = sp.getString("first_run", today());
-        if (!today().equals(first)) {
+        if (!today().equals(first) && today().equals(sp.getString("daily_last", ""))) {
             sp.edit().putBoolean("offer_day2_done", true).apply();
             offerRemoveAds("day2");
         }
@@ -355,6 +355,10 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
             ads.attachBanner(bannerBox);
         }
         ads.maybeShowInterstitial(spinsDone);
+        if (!sp.getBoolean("played_before", false)) {
+            sp.edit().putBoolean("played_before", true).apply();
+            handler.postDelayed(this::maybeDailyBonus, 1200);
+        }
     }
 
     @Override public void onBigWin(long win, long bet) {

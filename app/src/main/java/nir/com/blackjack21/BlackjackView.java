@@ -104,6 +104,7 @@ public class BlackjackView extends View {
     }
 
     private void deal() {
+        GameSounds.play(GameSounds.CARD);
         long bet = BETS[betIdx];
         if (balance < bet) { if (listener != null) listener.onOutOfCoins(); return; }
         balance -= bet;
@@ -157,12 +158,12 @@ public class BlackjackView extends View {
         boolean pBJ = player.size() == 2 && ps == 21;
         boolean dBJ = dealer.size() == 2 && ds == 21;
         if (ps > 21) { message = "Bust - dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
-        else if (pBJ && !dBJ) { long w = bet + bet * 3 / 2; balance += w; message = "Blackjack!"; lastWin = w - bet; resultKind = 3; resultAmount = lastWin; }
+        else if (pBJ && !dBJ) { long w = bet + bet * 3 / 2; balance += w; GameSounds.play(GameSounds.BIG_WIN); message = "Blackjack!"; lastWin = w - bet; resultKind = 3; resultAmount = lastWin; }
         else if (dBJ && !pBJ) { message = "Dealer blackjack"; lastWin = 0; resultKind = 0; resultAmount = bet; }
-        else if (ds > 21) { balance += bet * 2; message = "Dealer busts!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
-        else if (ps > ds) { balance += bet * 2; message = "You win!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
+        else if (ds > 21) { balance += bet * 2; GameSounds.play(GameSounds.WIN); message = "Dealer busts!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
+        else if (ps > ds) { balance += bet * 2; GameSounds.play(GameSounds.WIN); message = "You win!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
         else if (ps == ds) { balance += bet; message = "Push - bet returned"; lastWin = 0; resultKind = 2; resultAmount = 0; }
-        else { message = "Dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
+        else { GameSounds.play(GameSounds.LOSE); message = "Dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
         resultAt = System.currentTimeMillis();
         if (resultKind == 1 || resultKind == 3) spawnParticles();
         phase = 3;
