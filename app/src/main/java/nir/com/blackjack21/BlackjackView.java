@@ -59,7 +59,8 @@ public class BlackjackView extends View {
     private long levelUpReward = 0;
     private boolean levelUpShowing = false;
     private long levelUpAt = 0;
-    private int pressedBtn = -1;         // 0..n index into current buttons
+    private int pressedBtn = -1;
+    private long betBumpAt = 0;         // 0..n index into current buttons
     private long pressedAt = 0;
 
     public BlackjackView(Context c) { super(c); }
@@ -538,6 +539,16 @@ public class BlackjackView extends View {
                 float cy = h * 0.735f + (sel ? -h * 0.008f : 0);
                 drawChip(cv, cx0 + i * (chipR * 2 + chipGap), cy, chipR, CHIP_COLORS[i], "" + BETS[i], sel);
             }
+
+            // MAX BET shortcut
+            float mx = w / 2f + rowW / 2f + chipGap * 0.6f + chipR * 0.8f;
+            float bump = now - betBumpAt < 250 ? 1f + 0.25f * (1f - (now - betBumpAt) / 250f) : 1f;
+            if (now - betBumpAt < 250) postInvalidateDelayed(28);
+            p.setColor(0xFFFFD54F);
+            cv.drawCircle(mx, h * 0.735f, chipR * 0.8f * bump, p);
+            p.setColor(0xFF6D4C00); p.setTextSize(chipR * 0.4f * bump); p.setTextAlign(Paint.Align.CENTER); p.setFakeBoldText(true);
+            cv.drawText("MAX", mx, h * 0.735f + chipR * 0.14f * bump, p);
+            p.setFakeBoldText(false);
             p.setColor(0x99FFFFFF); p.setTextSize(h * 0.012f); p.setTextAlign(Paint.Align.CENTER);
             cv.drawText("TAP A CHIP TO SET YOUR BET", w / 2f, h * 0.677f, p);
             drawPillButton(cv, w * 0.14f, h * 0.80f, w * 0.72f, bh, "DEAL   \u25B6", 0xFF43A047, 0xFF1B5E20,
@@ -659,10 +670,28 @@ public class BlackjackView extends View {
         return -1;
     }
 
+
+    private void maxBet() {
+        for (int i = BETS.length - 1; i >= 0; i--) {
+            if (balance >= BETS[i]) {
+                if (i != betIdx) {
+                    betIdx = i;
+                    GameSounds.play(getContext(), GameSounds.CHIP);
+                    betBumpAt = System.currentTimeMillis();
+                }
+                invalidate();
+                if (listener != null) listener.saveState();
+                return;
+            }
+        }
+    }
+
     private void selectChipAt(int w, int h, float x, float y) {
         float chipR = w * 0.068f, chipGap = w * 0.045f;
         float rowW = BETS.length * chipR * 2 + (BETS.length - 1) * chipGap;
         float cx0 = w / 2f - rowW / 2f + chipR;
+        float mx = w / 2f + rowW / 2f + chipGap * 0.6f + chipR * 0.8f;
+        if (Math.hypot(x - mx, y - h * 0.735f) <= chipR * 1.2f) { maxBet(); return; }
         for (int i = 0; i < BETS.length; i++) {
             float cx = cx0 + i * (chipR * 2 + chipGap);
             float ddx = x - cx, ddy = y - h * 0.735f;
