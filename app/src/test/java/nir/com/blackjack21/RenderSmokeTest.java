@@ -94,4 +94,21 @@ public class RenderSmokeTest {
         renderLatestDialog("blackjack21-outofcoins");
     }
 
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test public void renderDealtHand() throws Exception {
+        BlackjackView v = new BlackjackView(RuntimeEnvironment.getApplication());
+        v.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+                  View.MeasureSpec.makeMeasureSpec(2243, View.MeasureSpec.EXACTLY));
+        callPrivate(v, "deal");
+        // rewind card fly-in timestamps so the render shows the settled hand
+        for (String field : new String[]{"playerCardT", "dealerCardT"}) {
+            java.lang.reflect.Field fl = BlackjackView.class.getDeclaredField(field);
+            fl.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.List<Long> ts = (java.util.List<Long>) fl.get(v);
+            for (int i = 0; i < ts.size(); i++) ts.set(i, 0L);
+        }
+        renderView(v, 1080, 2243, "/tmp/renders/blackjack21-dealt.png");
+    }
 }

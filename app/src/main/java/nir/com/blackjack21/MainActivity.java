@@ -2,11 +2,10 @@ package nir.com.blackjack21;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.net.Uri;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.Gravity;
@@ -31,8 +30,10 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
     private MissionsManager missions;
     private SharedPreferences sp;
     private LinearLayout bannerBox;
-    private Button removeAdsBtn;
+    private boolean bannerAttached = false;
     private final Handler handler = new Handler();
+
+    private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density); }
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -40,7 +41,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF120826);
+        root.setBackgroundColor(0xFF06281E);
         root.addView(buildButtonRow());
         game = new BlackjackView(this);
         game.setListener(this);
@@ -55,46 +56,48 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         missions = new MissionsManager(this, null);
 
         ads = new AdsManager(this);
-        ads.setAdEvents(this::onInterstitialShown);
         boolean removed = sp.getBoolean("ads_removed", false) || sp.getBoolean("remove_ads", false);
         if (removed) sp.edit().putBoolean("ads_removed", true).apply();
         ads.setAdsRemoved(removed);
-        if (removed) applyAdsRemoved();
-        ads.initWithConsent(() -> { if (!removed) ads.attachBanner(bannerBox); });
+        ads.initWithConsent(() -> { /* banner attaches after the first completed round */ });
 
         billing = new BillingManager(this, this);
 
         if (sp.getString("first_run", null) == null)
             sp.edit().putString("first_run", today()).apply();
 
-        handler.postDelayed(this::maybeDailyBonus, 900);
-        handler.postDelayed(this::maybeDay2Offer, 2000);
+        handler.postDelayed(this::maybeDailyBonus, 1200);
+    }
+
+    private GradientDrawable pill(int color, int radiusDp) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(color);
+        g.setCornerRadius(dp(radiusDp));
+        g.setStroke(dp(1), 0x33FFFFFF);
+        return g;
     }
 
     private View buildButtonRow() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
-        row.setPadding(4, 6, 4, 0);
-        addRowButton(row, "FREE COINS", v -> freeCoins());
-        addRowButton(row, "MISSIONS", v -> showMissions());
-        addRowButton(row, "SHOP", v -> showShop());
-        addRowButton(row, "MORE GAMES", v ->
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.DEV_PAGE_URL))));
-        removeAdsBtn = addRowButton(row, "NO ADS", v -> buyRemoveAds());
+        row.setPadding(dp(6), dp(6), dp(6), dp(2));
+        addRowButton(row, "\uD83C\uDF81 FREE", v -> freeCoins(), 0xFF2E7D32);
+        addRowButton(row, "\uD83C\uDFAF MISSIONS", v -> showMissions(), 0xFF1565C0);
+        addRowButton(row, "\uD83D\uDED2 SHOP", v -> showShop(), 0xFFB8860B);
         return row;
     }
 
-    private Button addRowButton(LinearLayout row, String label, View.OnClickListener l) {
+    private Button addRowButton(LinearLayout row, String label, View.OnClickListener l, int color) {
         Button btn = new Button(this);
         btn.setText(label);
         btn.setTextSize(11f);
         btn.setTypeface(Typeface.DEFAULT_BOLD);
         btn.setTextColor(Color.WHITE);
-        btn.setBackgroundColor(0xFF3A1F66);
+        btn.setBackground(pill(color, 22));
         btn.setMinHeight(0); btn.setMinimumHeight(0);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, (int) (48 * getResources().getDisplayMetrics().density), 1f);
-        lp.setMargins(4, 0, 4, 0);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(42), 1f);
+        lp.setMargins(dp(4), 0, dp(4), 0);
         row.addView(btn, lp);
         btn.setOnClickListener(l);
         return btn;
@@ -112,12 +115,71 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         if (today().equals(last)) return;
         int streak = yesterday().equals(last) ? sp.getInt("daily_streak", 0) + 1 : 1;
         long bonus = DAILY_BONUS[Math.min(streak, DAILY_BONUS.length) - 1];
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        box.setPadding(dp(12), dp(16), dp(12), dp(4));
+
+        TextView gift = new TextView(this);
+        gift.setText("\uD83C\uDF81");
+        gift.setTextSize(44f);
+        gift.setGravity(Gravity.CENTER);
+        box.addView(gift);
+
+        TextView title = new TextView(this);
+        title.setText("Daily Bonus - Day " + streak);
+        title.setTextSize(20f);
+        title.setTypeface(Typeface.DEFAULT_BOLD);
+        title.setTextColor(0xFFFFFFFF);
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(0, dp(6), 0, dp(10));
+        box.addView(title);
+
+        LinearLayout track = new LinearLayout(this);
+        track.setOrientation(LinearLayout.HORIZONTAL);
+        track.setGravity(Gravity.CENTER);
+        for (int d = 1; d <= 7; d++) {
+            LinearLayout cell = new LinearLayout(this);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            cell.setGravity(Gravity.CENTER);
+            boolean isToday = d == Math.min(streak, 7);
+            boolean claimed = d < streak;
+            cell.setBackground(pill(isToday ? 0xFFFFD54F : (claimed ? 0xFFC8E6C9 : 0xFFECEFF1), 10));
+            cell.setPadding(dp(2), dp(6), dp(2), dp(6));
+            TextView dl = new TextView(this);
+            dl.setText("Day " + d);
+            dl.setTextSize(9f);
+            dl.setTextColor(0xFF37474F);
+            dl.setGravity(Gravity.CENTER);
+            cell.addView(dl);
+            TextView dv = new TextView(this);
+            dv.setText(claimed ? "\u2714" : (d == 7 ? "\uD83C\uDFC6 " + DAILY_BONUS[6] : "" + DAILY_BONUS[d - 1]));
+            dv.setTextSize(10f);
+            dv.setTypeface(Typeface.DEFAULT_BOLD);
+            dv.setTextColor(isToday ? 0xFF6D4C00 : 0xFF37474F);
+            dv.setGravity(Gravity.CENTER);
+            cell.addView(dv);
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, -2, 1f);
+            clp.setMargins(dp(2), 0, dp(2), 0);
+            track.addView(cell, clp);
+        }
+        box.addView(track, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView sub = new TextView(this);
+        sub.setText("Today's gift: +" + bonus + " coins. Keep the streak alive!");
+        sub.setTextSize(13f);
+        sub.setTextColor(0xFFB0BEC5);
+        sub.setGravity(Gravity.CENTER);
+        sub.setPadding(0, dp(10), 0, dp(4));
+        box.addView(sub);
+
+        final int fStreak = streak;
         new AlertDialog.Builder(this)
-            .setTitle("Daily bonus - day " + streak)
-            .setMessage("Your day " + streak + " gift: +" + bonus + " coins. Come back tomorrow to grow your streak!\n\nAll coins are virtual and free.")
-            .setPositiveButton("Claim +" + bonus, (d, w) -> grantDaily(streak, bonus))
-            .setNeutralButton("Watch ad for 2X", (d, w) ->
-                ads.showRewarded(() -> grantDaily(streak, bonus * 2)))
+            .setView(box)
+            .setPositiveButton("Claim +" + bonus, (d, w) -> grantDaily(fStreak, bonus))
+            .setNeutralButton("\u25B6 Watch ad for 2X", (d, w) ->
+                ads.showRewarded(() -> grantDaily(fStreak, bonus * 2)))
             .setCancelable(false)
             .show();
     }
@@ -152,7 +214,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
     private void showMissions() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        int pad = dp(16);
         box.setPadding(pad, pad / 2, pad, 0);
         addSection(box, "Daily missions", missions.dailyMissions());
         addSection(box, "Achievements", missions.achievements(game.getLevel(), game.getSpinsDone()));
@@ -195,7 +257,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         }
     }
 
-    // ---------- shop & remove ads ----------
+    // ---------- shop ----------
     private void showShop() {
         if (!billing.hasProducts()) {
             new AlertDialog.Builder(this).setTitle("Coin shop")
@@ -205,8 +267,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         }
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        box.setPadding(pad, pad / 2, pad, 0);
+        box.setPadding(dp(16), dp(8), dp(16), 0);
         TextView note = new TextView(this);
         note.setText("Coins are virtual only - no cash value, no prizes, 18+.");
         note.setPadding(0, 0, 0, 12);
@@ -224,64 +285,22 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
             .setNegativeButton("Close", null).show();
     }
 
-    private void buyRemoveAds() {
-        if (billing.getDetails(BillingManager.REMOVE_ADS) != null) {
-            billing.buy(this, BillingManager.REMOVE_ADS);
-        } else {
-            Toast.makeText(this, "Not available yet - try again soon", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void offerRemoveAds(String why) {
-        if (sp.getBoolean("ads_removed", false)) return;
-        String price = billing.priceOf(BillingManager.REMOVE_ADS);
-        String text = "Enjoying Blackjack 21? Remove banner and between-round ads forever with one small one-time purchase"
-            + (price != null ? " (" + price + ")" : "") + ". Free rewarded ads for coins stay available either way.";
-        new AlertDialog.Builder(this)
-            .setTitle("Remove ads")
-            .setMessage(text)
-            .setPositiveButton(price != null ? "Remove ads - " + price : "Remove ads", (d, w) -> buyRemoveAds())
-            .setNegativeButton("No thanks", null)
-            .show();
-    }
-
-    private void onInterstitialShown() {
-        int total = sp.getInt("inter_total", 0) + 1;
-        sp.edit().putInt("inter_total", total).apply();
-        if (total == 3 && !sp.getBoolean("offer3_done", false)) {
-            sp.edit().putBoolean("offer3_done", true).apply();
-            handler.postDelayed(() -> offerRemoveAds("after3"), 1500);
-        }
-    }
-
-    private void maybeDay2Offer() {
-        if (sp.getBoolean("ads_removed", false) || sp.getBoolean("offer_day2_done", false)) return;
-        String first = sp.getString("first_run", today());
-        if (!today().equals(first)) {
-            sp.edit().putBoolean("offer_day2_done", true).apply();
-            offerRemoveAds("day2");
-        }
-    }
-
-    private void applyAdsRemoved() {
-        bannerBox.removeAllViews();
-        if (removeAdsBtn != null) removeAdsBtn.setVisibility(View.GONE);
-    }
-
     // ---------- BlackjackView.Listener ----------
     @Override public void onOutOfCoins() {
-        AlertDialog.Builder b = new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this)
             .setTitle("Out of coins")
             .setMessage("Watch a short ad for +300 free coins? Coins also refill slowly over time. All coins are virtual and free.")
             .setPositiveButton("Watch ad", (d, w) -> ads.showRewarded(() -> game.addCoins(300)))
-            .setNegativeButton("Not now", null);
-        if (!sp.getBoolean("ads_removed", false))
-            b.setNeutralButton("Remove all ads", (d, w) -> offerRemoveAds("outofcoins"));
-        b.show();
+            .setNegativeButton("Not now", null)
+            .show();
     }
 
     @Override public void onSpinComplete(int spinsDone, long win, long bet) {
         missions.onSpin(win, bet, game.getLevel(), spinsDone);
+        if (!bannerAttached && !sp.getBoolean("ads_removed", false)) {
+            bannerAttached = true;
+            ads.attachBanner(bannerBox);
+        }
         ads.maybeShowInterstitial(spinsDone);
     }
 
@@ -298,9 +317,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         }, 1800);
     }
 
-    @Override public void onLevelUp(int level, long reward) {
-        Toast.makeText(this, "Level " + level + "! +" + reward + " coins", Toast.LENGTH_SHORT).show();
-    }
+    @Override public void onLevelUp(int level, long reward) { /* in-game celebration overlay handles this */ }
 
     @Override public void saveState() {
         sp.edit().putString(KEY, game.serialize()).apply();
@@ -312,7 +329,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         sp.edit().putBoolean("ads_removed", true).apply();
         runOnUiThread(() -> {
             ads.setAdsRemoved(true);
-            applyAdsRemoved();
+            bannerBox.removeAllViews();
             Toast.makeText(this, "Ads removed - thank you!", Toast.LENGTH_LONG).show();
         });
     }
