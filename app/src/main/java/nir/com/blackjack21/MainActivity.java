@@ -340,7 +340,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
     @Override public void onOutOfCoins() {
         AlertDialog.Builder b = new AlertDialog.Builder(this)
             .setTitle("Out of coins")
-            .setMessage("Watch a short ad for +300 free coins? Coins also refill slowly over time. All coins are virtual and free.")
+            .setMessage("Watch a short ad for +300 free coins? Coins also refill slowly over time. Coins are virtual only - no cash value, no prizes.")
             .setPositiveButton("Watch ad", (d, w) -> ads.showRewarded(() -> game.addCoins(300)))
             .setNegativeButton("Not now", null);
         if (!sp.getBoolean("ads_removed", false))
