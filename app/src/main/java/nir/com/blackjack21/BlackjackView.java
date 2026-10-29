@@ -528,7 +528,7 @@ public class BlackjackView extends View {
                 drawChip(cv, cx0 + i * (chipR * 2 + chipGap), cy, chipR, CHIP_COLORS[i], "" + BETS[i], sel);
             }
             p.setColor(0x99FFFFFF); p.setTextSize(h * 0.012f); p.setTextAlign(Paint.Align.CENTER);
-            cv.drawText("TAP A CHIP TO SET YOUR BET", w / 2f, h * 0.693f, p);
+            cv.drawText("TAP A CHIP TO SET YOUR BET", w / 2f, h * 0.677f, p);
             drawPillButton(cv, w * 0.14f, h * 0.80f, w * 0.72f, bh, "DEAL   \u25B6", 0xFF43A047, 0xFF1B5E20,
                     balance >= BETS[betIdx], pressedBtn == 0, pulse);
         } else if (phase == 1) {
