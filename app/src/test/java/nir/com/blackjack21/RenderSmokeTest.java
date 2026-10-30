@@ -123,6 +123,11 @@ public class RenderSmokeTest {
             org.junit.Assert.assertEquals("deal must debit exactly the displayed bet", 490L, bf.getLong(v));
         }
         // rewind card fly-in timestamps so the render shows the settled hand
+        { // settle the animated balance display for the static capture
+            java.lang.reflect.Field sb = BlackjackView.class.getDeclaredField("shownBalance");
+            sb.setAccessible(true);
+            sb.setLong(v, 490L);
+        }
         for (String field : new String[]{"playerCardT", "dealerCardT"}) {
             java.lang.reflect.Field fl = BlackjackView.class.getDeclaredField(field);
             fl.setAccessible(true);
@@ -155,6 +160,28 @@ public class RenderSmokeTest {
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     @Test public void renderGameViewSmall() throws Exception {
         renderView(new BlackjackView(RuntimeEnvironment.getApplication()), 960, 1600, "/tmp/renders/blackjack21-game-960x1600.png");
+    }
+
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test public void dealtHandSmall() throws Exception {
+        BlackjackView v = new BlackjackView(RuntimeEnvironment.getApplication());
+        v.measure(View.MeasureSpec.makeMeasureSpec(960, View.MeasureSpec.EXACTLY),
+                  View.MeasureSpec.makeMeasureSpec(1600, View.MeasureSpec.EXACTLY));
+        callPrivate(v, "deal");
+        { // settle the animated balance display for the static capture
+            java.lang.reflect.Field sb = BlackjackView.class.getDeclaredField("shownBalance");
+            sb.setAccessible(true);
+            sb.setLong(v, 490L);
+        }
+        for (String field : new String[]{"playerCardT", "dealerCardT"}) {
+            java.lang.reflect.Field fl = BlackjackView.class.getDeclaredField(field);
+            fl.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.List<Long> ts = (java.util.List<Long>) fl.get(v);
+            for (int i = 0; i < ts.size(); i++) ts.set(i, 0L);
+        }
+        renderView(v, 960, 1600, "/tmp/renders/blackjack21-dealt-960x1600.png");
     }
 
 }
