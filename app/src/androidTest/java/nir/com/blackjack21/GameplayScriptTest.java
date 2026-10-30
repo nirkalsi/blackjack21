@@ -46,5 +46,13 @@ public class GameplayScriptTest {
         tap(0.19f, 0.789f); Thread.sleep(2500);   // HIT
         tap(0.5f, 0.789f); Thread.sleep(4000);    // STAND, dealer plays, result banner
         tap(0.5f, 0.646f); Thread.sleep(1500);    // dismiss level-up overlay if shown
+        // round-state assertion: onPause persists serialize() = balance;betIdx;handsDone;lastRegenAt;xp;level
+        d.pressHome(); Thread.sleep(2000);
+        android.content.SharedPreferences sp = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+                .getTargetContext().getSharedPreferences("blackjack21", 0);
+        String state = sp.getString("state", "");
+        if (state.isEmpty()) throw new AssertionError("no saved state after scripted round");
+        long handsDone = Long.parseLong(state.split(";")[2]);
+        if (handsDone < 1) throw new AssertionError("round did not complete, state=" + state);
     }
 }
