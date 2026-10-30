@@ -141,4 +141,20 @@ public class RenderSmokeTest {
         f.setLong(v, System.currentTimeMillis() - 350);
         renderView(v, 1080, 2243, "/tmp/renders/blackjack21-coinburst.png");
     }
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test public void levelUpOverlay() throws Exception {
+        BlackjackView v = new BlackjackView(RuntimeEnvironment.getApplication());
+        java.lang.reflect.Field fp = BlackjackView.class.getDeclaredField("levelUpPending"); fp.setAccessible(true); fp.setInt(v, 4);
+        java.lang.reflect.Field fr = BlackjackView.class.getDeclaredField("levelUpReward"); fr.setAccessible(true); fr.setLong(v, 200L);
+        java.lang.reflect.Field fs = BlackjackView.class.getDeclaredField("levelUpShowing"); fs.setAccessible(true); fs.setBoolean(v, true);
+        java.lang.reflect.Field fa = BlackjackView.class.getDeclaredField("levelUpAt"); fa.setAccessible(true); fa.setLong(v, System.currentTimeMillis() - 1000);
+        renderView(v, 1080, 2243, "/tmp/renders/blackjack21-levelup.png");
+    }
+
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test public void renderGameViewSmall() throws Exception {
+        renderView(new BlackjackView(RuntimeEnvironment.getApplication()), 960, 1600, "/tmp/renders/blackjack21-game-960x1600.png");
+    }
+
 }
