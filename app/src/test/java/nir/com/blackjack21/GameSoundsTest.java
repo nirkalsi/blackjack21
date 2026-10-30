@@ -55,6 +55,18 @@ public class GameSoundsTest {
             f.write("data".getBytes()); writeInt(f, data.length);
             f.write(data); f.close();
         }
+        // background music loop
+        short[] pcm = GameSounds.synthMusic();
+        java.io.ByteArrayOutputStream raw = new java.io.ByteArrayOutputStream();
+        for (short v : pcm) { raw.write(v & 0xFF); raw.write((v >> 8) & 0xFF); }
+        byte[] data = raw.toByteArray();
+        java.io.FileOutputStream f = new java.io.FileOutputStream("/tmp/sfx/music.wav");
+        f.write("RIFF".getBytes());
+        writeInt(f, 36 + data.length); f.write("WAVEfmt ".getBytes());
+        writeInt(f, 16); writeShort(f, 1); writeShort(f, 1);
+        writeInt(f, 22050); writeInt(f, 22050 * 2); writeShort(f, 2); writeShort(f, 16);
+        f.write("data".getBytes()); writeInt(f, data.length);
+        f.write(data); f.close();
     }
 
     private static void writeInt(java.io.OutputStream f, int v) throws Exception {
@@ -63,6 +75,16 @@ public class GameSoundsTest {
 
     private static void writeShort(java.io.OutputStream f, int v) throws Exception {
         f.write(v & 0xFF); f.write((v >> 8) & 0xFF);
+    }
+
+    @Test public void musicLoopIsNonSilent() {
+        short[] pcm = GameSounds.synthMusic();
+        assertNotNull(pcm);
+        assertTrue(pcm.length > 100000);
+        int peak = 0;
+        for (short v : pcm) peak = Math.max(peak, Math.abs((int) v));
+        assertTrue("music silent", peak > 1000);
+        assertTrue("music may clip", peak < 25000);
     }
 
     @Test public void backgroundedAppIsSilent() {
