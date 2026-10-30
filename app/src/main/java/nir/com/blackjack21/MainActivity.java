@@ -36,6 +36,14 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
 
     private int dp(int v) { return (int) (v * getResources().getDisplayMetrics().density); }
 
+    // Edge-to-edge is enforced on API 35+ (targetSdk 36): pad the content below the status bar and above the nav bar.
+    private void applySystemBarInsets(View root) {
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            v.setPadding(0, insets.getSystemWindowInsetTop(), 0, insets.getSystemWindowInsetBottom());
+            return insets;
+        });
+    }
+
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         sp = getSharedPreferences(PREFS, MODE_PRIVATE);
@@ -50,6 +58,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         bannerBox = new LinearLayout(this);
         root.addView(bannerBox, new LinearLayout.LayoutParams(-1, -2));
         setContentView(root);
+        applySystemBarInsets(root);
 
         String s = sp.getString(KEY, null);
         if (s != null) game.restore(s);
