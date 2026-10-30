@@ -18,6 +18,7 @@ android {
         buildConfigField 'String', 'DEV_PAGE_URL', "\"${project.findProperty('DEV_PAGE_URL') ?: 'https://play.google.com/store/apps/developer?id=NK+MobileApps'}\""
     }
     buildFeatures { buildConfig true }
+    testOptions { unitTests.includeAndroidResources = true; unitTests.all { maxHeapSize = "2g" } }
     signingConfigs {
         release {
             def ks = System.getenv('KS_FILE')

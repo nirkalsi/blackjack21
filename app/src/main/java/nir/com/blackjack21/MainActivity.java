@@ -82,11 +82,18 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         handler.postDelayed(this::maybeDay2Offer, 2500);
     }
 
+    private int shade(int color, float f) { // f>0 lighten toward white, f<0 darken
+        int r = (color >> 16) & 0xFF, g = (color >> 8) & 0xFF, b = color & 0xFF;
+        if (f > 0) { r += (255 - r) * f; g += (255 - g) * f; b += (255 - b) * f; }
+        else { r *= (1f + f); g *= (1f + f); b *= (1f + f); }
+        return 0xFF000000 | (Math.min(255, r) << 16) | (Math.min(255, g) << 8) | Math.min(255, b);
+    }
+
     private GradientDrawable pill(int color, int radiusDp) {
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(color);
+        GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{shade(color, 0.28f), color, shade(color, -0.30f)});
         g.setCornerRadius(dp(radiusDp));
-        g.setStroke(dp(1), 0x33FFFFFF);
+        g.setStroke(dp(1), 0x66FFD700);
         return g;
     }
 
@@ -95,10 +102,10 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         row.setPadding(dp(6), dp(6), dp(6), dp(2));
-        addRowButton(row, "\uD83C\uDF81 FREE", v -> freeCoins(), 0xFF2E7D32);
-        addRowButton(row, "\uD83C\uDFAF MISSIONS", v -> showMissions(), 0xFF1565C0);
-        addRowButton(row, "\uD83D\uDED2 SHOP", v -> showShop(), 0xFFB8860B);
-        removeAdsBtn = addRowButton(row, "NO ADS", v -> buyRemoveAds(), 0xFF546E7A);
+        addRowButton(row, "\uD83C\uDF81 FREE", v -> freeCoins(), 0xFF1B5E20);
+        addRowButton(row, "\uD83C\uDFAF MISSIONS", v -> showMissions(), 0xFF0D47A1);
+        addRowButton(row, "\uD83D\uDED2 SHOP", v -> showShop(), 0xFF8D6E00);
+        removeAdsBtn = addRowButton(row, "NO ADS", v -> buyRemoveAds(), 0xFF37474F);
         return row;
     }
 
@@ -110,7 +117,9 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         btn.setPadding(0, 0, 0, 0);
         btn.setTypeface(Typeface.DEFAULT_BOLD);
         btn.setTextColor(Color.WHITE);
-        btn.setBackground(pill(color, 22));
+        btn.setLetterSpacing(0.06f);
+        btn.setBackground(pill(color, 23));
+        btn.setElevation(dp(3));
         btn.setMinHeight(0); btn.setMinimumHeight(0);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(46), 1f);
         lp.setMargins(dp(4), 0, dp(4), 0);
