@@ -132,4 +132,13 @@ public class RenderSmokeTest {
         }
         renderView(v, 1080, 2243, "/tmp/renders/blackjack21-dealt.png");
     }
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    @Test public void coinBurstMidFlight() throws Exception {
+        BlackjackView v = new BlackjackView(RuntimeEnvironment.getApplication());
+        v.coinBurst();
+        java.lang.reflect.Field f = BlackjackView.class.getDeclaredField("coinBurstAt");
+        f.setAccessible(true);
+        f.setLong(v, System.currentTimeMillis() - 350);
+        renderView(v, 1080, 2243, "/tmp/renders/blackjack21-coinburst.png");
+    }
 }

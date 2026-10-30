@@ -55,6 +55,11 @@ public class BlackjackView extends View {
     private long resultAmount = 0;
     private final float[] px = new float[18], py = new float[18], pvx = new float[18], pvy = new float[18];
     private boolean particlesOn = false;
+    // coin burst: coins fly from screen center to the balance pill (daily bonus claim)
+    private final float[] cbx = new float[14], cby = new float[14], cbvx = new float[14], cbvy = new float[14];
+    private boolean coinBurstOn = false;
+    private long coinBurstAt = 0;
+
     private int levelUpPending = 0;      // level number waiting for celebration
     private long levelUpReward = 0;
     private boolean levelUpShowing = false;
@@ -184,6 +189,40 @@ public class BlackjackView extends View {
         }
         if (balance < BETS[0] && listener != null) listener.onOutOfCoins();
         invalidate();
+    }
+
+
+    /** Coins burst from center and fly to the balance pill (e.g. daily claim). */
+    public void coinBurst() {
+        java.util.Random r = new java.util.Random();
+        for (int i = 0; i < 14; i++) {
+            cbx[i] = 0.5f + (r.nextFloat() - 0.5f) * 0.12f;
+            cby[i] = 0.45f + (r.nextFloat() - 0.5f) * 0.08f;
+            cbvx[i] = (r.nextFloat() - 0.5f) * 0.08f;
+            cbvy[i] = (r.nextFloat() - 0.5f) * 0.08f;
+        }
+        coinBurstOn = true;
+        coinBurstAt = System.currentTimeMillis();
+        invalidate();
+    }
+
+    private void drawCoinBurst(Canvas cv, float w, float h, long now) {
+        if (!coinBurstOn) return;
+        float t = (now - coinBurstAt) / 750f;
+        if (t >= 1f) { coinBurstOn = false; return; }
+        for (int i = 0; i < 14; i++) {
+            float local = Math.min(1f, Math.max(0f, t * 1.25f - i * 0.015f));
+            float e = local * local;
+            float x = (cbx[i] + cbvx[i] * local + (0.5f - cbx[i]) * e) * w;
+            float y = (cby[i] + cbvy[i] * local + (0.045f - cby[i]) * e) * h;
+            float rad = w * 0.014f * (1f - 0.4f * local);
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(0xFFFFD54F);
+            cv.drawCircle(x, y, rad, p);
+            p.setColor(0xFFB8860B);
+            cv.drawCircle(x, y, rad * 0.55f, p);
+        }
+        postInvalidateDelayed(28);
     }
 
     private void spawnParticles() {
@@ -596,6 +635,8 @@ public class BlackjackView extends View {
             if (t >= 1f)
                 drawPillButton(cv, w * 0.3f, h * 0.62f, w * 0.4f, h * 0.052f, "COLLECT", 0xFF43A047, 0xFF1B5E20, true, pressedBtn == 9, 0);
         }
+
+        drawCoinBurst(cv, w, h, now);
 
         // ---- state machine tick ----
         if (phase == 2 && now >= dealerNextAt) {
