@@ -99,7 +99,7 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         row.setPadding(dp(6), dp(6), dp(6), dp(2));
-        addRowButton(row, "\uD83C\uDF81 FREE", v -> freeCoins(), 0xFF1B5E20);
+        addRowButton(row, "\u25B6 FREE", v -> freeCoins(), 0xFF1B5E20);
         addRowButton(row, "\uD83C\uDFAF MISSIONS", v -> showMissions(), 0xFF0D47A1);
         addRowButton(row, "\uD83D\uDED2 SHOP", v -> showShop(), 0xFF8D6E00);
         return row;
