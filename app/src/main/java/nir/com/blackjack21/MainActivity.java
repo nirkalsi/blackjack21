@@ -30,7 +30,6 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
     private MissionsManager missions;
     private SharedPreferences sp;
     private LinearLayout bannerBox;
-    private Button removeAdsBtn;
     private boolean bannerAttached = false;
     private final Handler handler = new Handler();
 
@@ -66,7 +65,6 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         missions = new MissionsManager(this, null);
 
         ads = new AdsManager(this);
-        ads.setAdEvents(this::onInterstitialShown);
         boolean removed = sp.getBoolean("ads_removed", false) || sp.getBoolean("remove_ads", false);
         if (removed) sp.edit().putBoolean("ads_removed", true).apply();
         ads.setAdsRemoved(removed);
@@ -79,7 +77,6 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
             sp.edit().putString("first_run", today()).apply();
 
         if (sp.getBoolean("played_before", false)) handler.postDelayed(this::maybeDailyBonus, 1200);
-        handler.postDelayed(this::maybeDay2Offer, 2500);
     }
 
     private int shade(int color, float f) { // f>0 lighten toward white, f<0 darken
@@ -105,7 +102,6 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
         addRowButton(row, "\uD83C\uDF81 FREE", v -> freeCoins(), 0xFF1B5E20);
         addRowButton(row, "\uD83C\uDFAF MISSIONS", v -> showMissions(), 0xFF0D47A1);
         addRowButton(row, "\uD83D\uDED2 SHOP", v -> showShop(), 0xFF8D6E00);
-        removeAdsBtn = addRowButton(row, "NO ADS", v -> buyRemoveAds(), 0xFF37474F);
         return row;
     }
 
@@ -347,48 +343,8 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
             .setNegativeButton("Close", null).show();
     }
 
-    private void buyRemoveAds() {
-        if (billing.getDetails(BillingManager.REMOVE_ADS) != null) {
-            billing.buy(this, BillingManager.REMOVE_ADS);
-        } else {
-            Toast.makeText(this, "Not available yet - try again soon", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void offerRemoveAds(String why) {
-        if (sp.getBoolean("ads_removed", false)) return;
-        String price = billing.priceOf(BillingManager.REMOVE_ADS);
-        String text = "Enjoying Blackjack 21? Remove banner and between-round ads forever with one small one-time purchase"
-            + (price != null ? " (" + price + ")" : "") + ". Free rewarded ads for coins stay available either way.";
-        new AlertDialog.Builder(this)
-            .setTitle("Remove ads")
-            .setMessage(text)
-            .setPositiveButton(price != null ? "Remove ads - " + price : "Remove ads", (d, w) -> buyRemoveAds())
-            .setNegativeButton("No thanks", null)
-            .show();
-    }
-
-    private void onInterstitialShown() {
-        int total = sp.getInt("inter_total", 0) + 1;
-        sp.edit().putInt("inter_total", total).apply();
-        if (total == 3 && !sp.getBoolean("offer3_done", false)) {
-            sp.edit().putBoolean("offer3_done", true).apply();
-            handler.postDelayed(() -> offerRemoveAds("after3"), 1500);
-        }
-    }
-
-    private void maybeDay2Offer() {
-        if (sp.getBoolean("ads_removed", false) || sp.getBoolean("offer_day2_done", false)) return;
-        String first = sp.getString("first_run", today());
-        if (!today().equals(first) && today().equals(sp.getString("daily_last", ""))) {
-            sp.edit().putBoolean("offer_day2_done", true).apply();
-            offerRemoveAds("day2");
-        }
-    }
-
     private void applyAdsRemoved() {
         bannerBox.removeAllViews();
-        if (removeAdsBtn != null) removeAdsBtn.setVisibility(View.GONE);
     }
 
     // ---------- BlackjackView.Listener ----------
@@ -398,8 +354,6 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
             .setMessage("Watch a short ad for +300 free coins? Coins also refill slowly over time. Coins are virtual only - no cash value, no prizes.")
             .setPositiveButton("Watch ad", (d, w) -> ads.showRewarded(() -> game.addCoins(300)))
             .setNegativeButton("Not now", null);
-        if (!sp.getBoolean("ads_removed", false))
-            b.setNeutralButton("Remove all ads", (d, w) -> offerRemoveAds("outofcoins"));
         b.show();
     }
 
@@ -409,7 +363,6 @@ public class MainActivity extends Activity implements BlackjackView.Listener, Bi
             bannerAttached = true;
             ads.attachBanner(bannerBox);
         }
-        ads.maybeShowInterstitial(spinsDone);
         if (!sp.getBoolean("played_before", false)) {
             sp.edit().putBoolean("played_before", true).apply();
             handler.postDelayed(this::maybeDailyBonus, 1200);
