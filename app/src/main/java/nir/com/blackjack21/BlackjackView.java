@@ -61,6 +61,7 @@ public class BlackjackView extends View {
     private long coinBurstAt = 0;
 
     private float[] texX, texY; private boolean[] texL; // felt texture cache
+    private android.graphics.Bitmap bgCache; private int bgW = -1, bgH = -1;
     private int levelUpPending = 0;      // level number waiting for celebration
     private long levelUpReward = 0;
     private boolean levelUpShowing = false;
@@ -255,6 +256,119 @@ public class BlackjackView extends View {
         }
     }
 
+
+    /** Builds the static casino-table backdrop once per size: layered felt lighting,
+     *  grain, spotlight, wood rail with brass trim, stitched betting arc, gold markings. */
+    private void buildBackground(int w, int h) {
+        if (bgCache != null) bgCache.recycle();
+        bgCache = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(bgCache);
+
+        // felt: key light high center, warm pool over the betting zone, deep edges
+        p.setStyle(Paint.Style.FILL);
+        p.setShader(new RadialGradient(w / 2f, h * 0.30f, h * 0.80f,
+                new int[]{0xFF3CBE8A, 0xFF1E8A5C, 0xFF0B452E, 0xFF032017},
+                new float[]{0f, 0.40f, 0.75f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRect(0, 0, w, h, p);
+        p.setShader(new RadialGradient(w / 2f, h * 0.44f, w * 0.55f, 0x2EFFE9B0, 0x00000000, Shader.TileMode.CLAMP));
+        c.drawRect(0, 0, w, h, p);
+        p.setShader(null);
+
+        // spotlight cone from above
+        p.setShader(new LinearGradient(0, 0, 0, h * 0.62f, 0x16FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        android.graphics.Path cone = new android.graphics.Path();
+        cone.moveTo(w * 0.30f, 0); cone.lineTo(w * 0.70f, 0);
+        cone.lineTo(w * 0.94f, h * 0.62f); cone.lineTo(w * 0.06f, h * 0.62f);
+        cone.close();
+        c.drawPath(cone, p);
+        p.setShader(null);
+
+        // felt grain: two dot scales + faint long brush strokes (fixed seed)
+        if (texX == null) {
+            java.util.Random tr = new java.util.Random(20241030L);
+            texX = new float[340]; texY = new float[340]; texL = new boolean[340];
+            for (int i = 0; i < 340; i++) { texX[i] = tr.nextFloat(); texY[i] = tr.nextFloat(); texL[i] = tr.nextBoolean(); }
+        }
+        float dotR = Math.max(1f, w * 0.0012f);
+        for (int i = 0; i < 340; i++) {
+            p.setColor(texL[i] ? 0x0CFFFFFF : 0x16000000);
+            c.drawCircle(texX[i] * w, texY[i] * h, (i % 5 == 0) ? dotR * 1.9f : dotR, p);
+        }
+        p.setStyle(Paint.Style.STROKE);
+        java.util.Random br = new java.util.Random(77L);
+        for (int i = 0; i < 6; i++) {
+            float by = h * (0.18f + 0.12f * i);
+            p.setStrokeWidth(w * 0.004f);
+            p.setColor(br.nextBoolean() ? 0x09FFFFFF : 0x0C000000);
+            c.drawArc(-w * 0.2f, by - h * 0.10f, w * 1.2f, by + h * 0.14f, 15, 150, false, p);
+        }
+        p.setStyle(Paint.Style.FILL);
+
+        // vignette
+        p.setShader(new RadialGradient(w / 2f, h * 0.46f, h * 0.72f,
+                new int[]{0x00000000, 0x00000000, 0x52000000},
+                new float[]{0f, 0.62f, 1f}, Shader.TileMode.CLAMP));
+        c.drawRect(0, 0, w, h, p);
+        p.setShader(null);
+
+        // wood rail: layered walnut frame with brass pinstripe
+        float railW = w * 0.030f;
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(railW);
+        p.setShader(new LinearGradient(0, 0, w * 0.7f, h, new int[]{0xFF5D3A28, 0xFF3E2723, 0xFF241611, 0xFF4A2E20},
+                new float[]{0f, 0.45f, 0.8f, 1f}, Shader.TileMode.CLAMP));
+        rf.set(railW / 2, railW / 2, w - railW / 2, h - railW / 2);
+        c.drawRoundRect(rf, w * 0.055f, w * 0.055f, p);
+        p.setShader(null);
+        // rail sheen, top-left
+        p.setStrokeWidth(railW * 0.34f); p.setColor(0x22FFE9C4);
+        rf.set(railW / 2, railW / 2, w - railW / 2, h - railW / 2);
+        c.drawRoundRect(rf, w * 0.055f, w * 0.055f, p);
+        // brass pinstripes
+        p.setStrokeWidth(Math.max(2f, w * 0.0045f)); p.setColor(0xCCD8B45A);
+        rf.set(railW + w * 0.005f, railW + w * 0.005f, w - railW - w * 0.005f, h - railW - w * 0.005f);
+        c.drawRoundRect(rf, w * 0.048f, w * 0.048f, p);
+        p.setStrokeWidth(Math.max(1.5f, w * 0.0025f)); p.setColor(0x66D8B45A);
+        rf.set(railW + w * 0.011f, railW + w * 0.011f, w - railW - w * 0.011f, h - railW - w * 0.011f);
+        c.drawRoundRect(rf, w * 0.043f, w * 0.043f, p);
+        p.setStyle(Paint.Style.FILL);
+
+        // betting arc: hairline gold + stitch dashes
+        float arcR = w * 0.40f;
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(w * 0.012f); p.setColor(0x1FFFD700);
+        c.drawArc(w / 2f - arcR, h * 0.335f, w / 2f + arcR, h * 0.335f + arcR * 1.1f, 20, 140, false, p);
+        p.setStrokeWidth(Math.max(2f, w * 0.005f)); p.setColor(0xB3FFD700);
+        c.drawArc(w / 2f - arcR, h * 0.335f, w / 2f + arcR, h * 0.335f + arcR * 1.1f, 20, 140, false, p);
+        float arcR2 = arcR * 1.09f;
+        p.setStrokeWidth(Math.max(1.5f, w * 0.003f)); p.setColor(0x59FFD700);
+        c.drawArc(w / 2f - arcR2, h * 0.325f, w / 2f + arcR2, h * 0.325f + arcR2 * 1.1f, 20, 140, false, p);
+        // stitch dashes between the lines
+        p.setStrokeWidth(Math.max(1.5f, w * 0.0028f)); p.setColor(0x40FFE9B0);
+        float arcR3 = arcR * 1.045f;
+        android.graphics.DashPathEffect dash = new android.graphics.DashPathEffect(new float[]{w * 0.018f, w * 0.014f}, 0);
+        p.setPathEffect(dash);
+        c.drawArc(w / 2f - arcR3, h * 0.330f, w / 2f + arcR3, h * 0.330f + arcR3 * 1.1f, 22, 136, false, p);
+        p.setPathEffect(null);
+        p.setStyle(Paint.Style.FILL);
+
+        // felt markings in embossed gold with diamond separators
+        p.setTextAlign(Paint.Align.CENTER);
+        p.setFakeBoldText(true); p.setLetterSpacing(0.16f);
+        p.setTextSize(h * 0.0165f);
+        p.setColor(0x33000000);
+        c.drawText("BLACKJACK PAYS 3 TO 2", w / 2f, h * 0.3335f + 2, p);
+        p.setColor(0xD9FFD700);
+        c.drawText("BLACKJACK PAYS 3 TO 2", w / 2f, h * 0.332f, p);
+        p.setTextSize(h * 0.0105f); p.setColor(0xB8FFD700);
+        c.drawText("\u2666", w / 2f - w * 0.30f, h * 0.331f, p);
+        c.drawText("\u2666", w / 2f + w * 0.30f, h * 0.331f, p);
+        p.setFakeBoldText(false); p.setLetterSpacing(0.10f);
+        p.setTextSize(h * 0.0120f); p.setColor(0x7DFFD700);
+        c.drawText("DEALER MUST STAND ON ALL 17", w / 2f, h * 0.353f, p);
+        p.setLetterSpacing(0f);
+    }
+
     // ---------- drawing helpers ----------
     private float easeOut(float t) { return 1f - (1f - t) * (1f - t) * (1f - t); }
     private float easeOutBack(float t) { float c = 1.70158f; t -= 1f; return 1f + (c + 1f) * t * t * t + c * t * t; }
@@ -293,48 +407,91 @@ public class BlackjackView extends View {
             p.setStyle(Paint.Style.FILL);
             return;
         }
-        // face: subtle ivory gradient + crisp edge
-        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, y, 0, y + h, 0xFFFFFFFF, 0xFFF4F4EE, Shader.TileMode.CLAMP));
+        // face: warm ivory stock with beveled edge
+        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, y, 0, y + h, 0xFFFFFEFC, 0xFFF6F1E4, Shader.TileMode.CLAMP));
         cv.drawRoundRect(rf, rad, rad, p);
         p.setAlpha(0xFF); p.setShader(null);
-        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(1.5f, dw * 0.014f)); p.setColor(0xFF8A8A8A);
+        // bevel: light top-left, shade bottom-right
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(1.5f, dw * 0.012f));
+        p.setColor(0xBFFFFFFF);
+        cv.drawLine(dx + rad, y + 1, dx + dw - rad, y + 1, p);
+        cv.drawLine(dx + 1, y + rad, dx + 1, y + h - rad, p);
+        p.setColor(0x33000000);
+        cv.drawLine(dx + rad, y + h - 1, dx + dw - rad, y + h - 1, p);
+        cv.drawLine(dx + dw - 1, y + rad, dx + dw - 1, y + h - rad, p);
+        p.setStrokeWidth(Math.max(1.5f, dw * 0.014f)); p.setColor(0xFF9C9690);
         cv.drawRoundRect(rf, rad, rad, p);
         p.setStyle(Paint.Style.FILL);
         int suit = rankIdx % 4;
         boolean red = suit == 1 || suit == 2;
         int ink = red ? 0xFFC62828 : 0xFF1B1B1B;
         boolean face = rankIdx >= 10; // J Q K
-        // corner pips, top-left
         p.setColor(ink); p.setTextAlign(Paint.Align.LEFT); p.setFakeBoldText(true);
         if (scaleX >= 0) {
-            p.setTextSize(w * 0.24f);
-            cv.drawText(RANKS[rankIdx], dx + dw * 0.06f, y + h * 0.21f, p);
-            p.setTextSize(w * 0.20f);
-            cv.drawText(SUITS[suit], dx + dw * 0.06f, y + h * 0.38f, p);
-            // bottom-right pip, rotated 180
+            // corner indices
+            p.setTextSize(w * 0.235f);
+            cv.drawText(RANKS[rankIdx], dx + dw * 0.055f, y + h * 0.20f, p);
+            p.setTextSize(w * 0.19f);
+            cv.drawText(SUITS[suit], dx + dw * 0.055f, y + h * 0.365f, p);
             cv.save();
             cv.rotate(180f, cx, y + h / 2f);
-            p.setTextSize(w * 0.24f);
-            cv.drawText(RANKS[rankIdx], dx + dw * 0.06f, y + h * 0.21f, p);
-            p.setTextSize(w * 0.20f);
-            cv.drawText(SUITS[suit], dx + dw * 0.06f, y + h * 0.38f, p);
+            p.setTextSize(w * 0.235f);
+            cv.drawText(RANKS[rankIdx], dx + dw * 0.055f, y + h * 0.20f, p);
+            p.setTextSize(w * 0.19f);
+            cv.drawText(SUITS[suit], dx + dw * 0.055f, y + h * 0.365f, p);
             cv.restore();
+            p.setFakeBoldText(false);
+            p.setTextAlign(Paint.Align.CENTER);
             if (face) {
-                // gold medallion with letter for face cards
-                float mr = w * 0.26f, my = y + h * 0.60f;
-                p.setStyle(Paint.Style.FILL); p.setColor(0xFFFBF3D5);
+                // face cards: ivory medallion, double gold ring, rank + crown
+                float mr = w * 0.27f, my = y + h * 0.585f;
+                p.setStyle(Paint.Style.FILL);
+                p.setAlpha(0xFF); p.setShader(new RadialGradient(cx - mr * 0.3f, my - mr * 0.35f, mr * 1.9f, 0xFFFFFDF6, 0xFFEFE3C4, Shader.TileMode.CLAMP));
                 cv.drawCircle(cx, my, mr, p);
-                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(mr * 0.12f); p.setColor(0xFFD4AF37);
-                cv.drawCircle(cx, my, mr * 0.88f, p);
-                p.setStyle(Paint.Style.FILL); p.setColor(ink);
-                p.setTextSize(mr * 1.1f); p.setTextAlign(Paint.Align.CENTER);
-                cv.drawText(RANKS[rankIdx], cx, my + mr * 0.38f, p);
-                p.setTextSize(mr * 0.55f); p.setColor(0xFFB8860B);
-                cv.drawText("\u265B", cx, my - mr * 0.62f, p);
+                p.setAlpha(0xFF); p.setShader(null);
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(mr * 0.10f); p.setColor(0xFFD4AF37);
+                cv.drawCircle(cx, my, mr * 0.90f, p);
+                p.setStrokeWidth(mr * 0.045f); p.setColor(0xFFEFE0B8);
+                cv.drawCircle(cx, my, mr * 0.76f, p);
+                p.setStyle(Paint.Style.FILL);
+                p.setFakeBoldText(true);
+                p.setColor(ink); p.setTextSize(mr * 1.05f);
+                cv.drawText(RANKS[rankIdx], cx, my + mr * 0.36f, p);
+                p.setTextSize(mr * 0.52f); p.setColor(0xFFB8860B);
+                cv.drawText("\u265B", cx, my - mr * 0.60f, p);
+                p.setFakeBoldText(false);
+            } else if (rankIdx == 0) {
+                // ace: one large elegant pip
+                p.setTextSize(w * 0.78f);
+                cv.drawText(SUITS[suit], cx, y + h * 0.80f, p);
             } else {
-                // center suit
-                p.setTextSize(w * 0.52f); p.setTextAlign(Paint.Align.CENTER);
-                cv.drawText(SUITS[suit], cx, y + h * 0.88f, p);
+                // number cards: classic pip layouts
+                float pip = w * 0.30f;
+                float xl = dx + dw * 0.315f, xr = dx + dw * 0.685f, xc = cx;
+                float y1 = y + h * 0.30f, y2 = y + h * 0.435f, y3 = y + h * 0.565f, y4 = y + h * 0.70f;
+                float ym = y + h * 0.50f, yu = y + h * 0.365f, yd = y + h * 0.635f;
+                int n = rankIdx + 1; // 2..10
+                p.setTextSize(pip);
+                java.util.List<float[]> pts = new java.util.ArrayList<>();
+                switch (n) {
+                    case 2: pts.add(new float[]{xc, y1, 0}); pts.add(new float[]{xc, y4, 1}); break;
+                    case 3: pts.add(new float[]{xc, y1, 0}); pts.add(new float[]{xc, ym, 0}); pts.add(new float[]{xc, y4, 1}); break;
+                    case 4: pts.add(new float[]{xl, y1, 0}); pts.add(new float[]{xr, y1, 0}); pts.add(new float[]{xl, y4, 1}); pts.add(new float[]{xr, y4, 1}); break;
+                    case 5: pts.add(new float[]{xl, y1, 0}); pts.add(new float[]{xr, y1, 0}); pts.add(new float[]{xc, ym, 0}); pts.add(new float[]{xl, y4, 1}); pts.add(new float[]{xr, y4, 1}); break;
+                    case 6: pts.add(new float[]{xl, y1, 0}); pts.add(new float[]{xr, y1, 0}); pts.add(new float[]{xl, ym, 0}); pts.add(new float[]{xr, ym, 0}); pts.add(new float[]{xl, y4, 1}); pts.add(new float[]{xr, y4, 1}); break;
+                    case 7: pts.add(new float[]{xl, y1, 0}); pts.add(new float[]{xr, y1, 0}); pts.add(new float[]{xc, yu, 0}); pts.add(new float[]{xl, ym, 0}); pts.add(new float[]{xr, ym, 0}); pts.add(new float[]{xl, y4, 1}); pts.add(new float[]{xr, y4, 1}); break;
+                    case 8: pts.add(new float[]{xl, y1, 0}); pts.add(new float[]{xr, y1, 0}); pts.add(new float[]{xc, yu, 0}); pts.add(new float[]{xl, ym, 0}); pts.add(new float[]{xr, ym, 0}); pts.add(new float[]{xc, yd, 1}); pts.add(new float[]{xl, y4, 1}); pts.add(new float[]{xr, y4, 1}); break;
+                    case 9: pts.add(new float[]{xl, y1, 0}); pts.add(new float[]{xr, y1, 0}); pts.add(new float[]{xl, y2, 0}); pts.add(new float[]{xr, y2, 0}); pts.add(new float[]{xc, ym, 0}); pts.add(new float[]{xl, y3, 1}); pts.add(new float[]{xr, y3, 1}); pts.add(new float[]{xl, y4, 1}); pts.add(new float[]{xr, y4, 1}); break;
+                    default: pts.add(new float[]{xl, y1, 0}); pts.add(new float[]{xr, y1, 0}); pts.add(new float[]{xc, yu * 0.995f + h * 0.002f, 0}); pts.add(new float[]{xl, y2, 0}); pts.add(new float[]{xr, y2, 0}); pts.add(new float[]{xl, y3, 1}); pts.add(new float[]{xr, y3, 1}); pts.add(new float[]{xc, yd, 1}); pts.add(new float[]{xl, y4, 1}); pts.add(new float[]{xr, y4, 1}); break;
+                }
+                for (float[] pt : pts) {
+                    float pxp = pt[0], pyp = pt[1];
+                    boolean flip = pt[2] > 0.5f;
+                    cv.save();
+                    if (flip) cv.rotate(180f, pxp, pyp - pip * 0.30f);
+                    cv.drawText(SUITS[suit], pxp, pyp, p);
+                    cv.restore();
+                }
             }
         }
         p.setFakeBoldText(false);
@@ -481,58 +638,9 @@ public class BlackjackView extends View {
         int w = getWidth(), h = getHeight();
         boolean animating = false;
 
-        // felt background: deep 4-stop velvet gradient
-        p.setAlpha(0xFF); p.setShader(new RadialGradient(w / 2f, h * 0.40f, h * 0.68f,
-                new int[]{0xFF2FA36E, 0xFF17784F, 0xFF0A3D2A, 0xFF04231A},
-                new float[]{0f, 0.42f, 0.78f, 1f}, Shader.TileMode.CLAMP));
-        p.setStyle(Paint.Style.FILL);
-        cv.drawRect(0, 0, w, h, p);
-        p.setAlpha(0xFF); p.setShader(null);
-
-        // felt speckle texture (fixed seed, normalized coords cached once)
-        if (texX == null) {
-            java.util.Random tr = new java.util.Random(20241030L);
-            texX = new float[260]; texY = new float[260]; texL = new boolean[260];
-            for (int i = 0; i < 260; i++) { texX[i] = tr.nextFloat(); texY[i] = tr.nextFloat(); texL[i] = tr.nextBoolean(); }
-        }
-        float dotR = Math.max(1f, w * 0.0012f);
-        for (int i = 0; i < 260; i++) {
-            p.setColor(texL[i] ? 0x0AFFFFFF : 0x14000000);
-            cv.drawCircle(texX[i] * w, texY[i] * h, dotR, p);
-        }
-
-        // table rail: wood-toned frame with gold pinstripe
-        float railW = w * 0.022f;
-        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, 0, 0, h, 0xFF4E342E, 0xFF2B1B16, Shader.TileMode.CLAMP));
-        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(railW);
-        rf.set(railW / 2, railW / 2, w - railW / 2, h - railW / 2);
-        cv.drawRoundRect(rf, w * 0.05f, w * 0.05f, p);
-        p.setAlpha(0xFF); p.setShader(null);
-        p.setStrokeWidth(Math.max(1.5f, w * 0.003f)); p.setColor(0x99FFD700);
-        rf.set(railW + w * 0.004f, railW + w * 0.004f, w - railW - w * 0.004f, h - railW - w * 0.004f);
-        cv.drawRoundRect(rf, w * 0.045f, w * 0.045f, p);
-        p.setStyle(Paint.Style.FILL);
-
-        // table arc: glow + double gold line
-        float arcR = w * 0.40f;
-        p.setStyle(Paint.Style.STROKE);
-        p.setStrokeWidth(w * 0.016f); p.setColor(0x26FFD700);
-        cv.drawArc(w / 2f - arcR, h * 0.335f, w / 2f + arcR, h * 0.335f + arcR * 1.1f, 20, 140, false, p);
-        p.setStrokeWidth(w * 0.006f); p.setColor(0xB3FFD700);
-        cv.drawArc(w / 2f - arcR, h * 0.335f, w / 2f + arcR, h * 0.335f + arcR * 1.1f, 20, 140, false, p);
-        float arcR2 = arcR * 1.09f;
-        p.setStrokeWidth(w * 0.004f); p.setColor(0x73FFD700);
-        cv.drawArc(w / 2f - arcR2, h * 0.325f, w / 2f + arcR2, h * 0.325f + arcR2 * 1.1f, 20, 140, false, p);
-        p.setStyle(Paint.Style.FILL);
-        // felt markings in casino gold
-        p.setTextAlign(Paint.Align.CENTER);
-        p.setColor(0xCFFFD700); p.setTextSize(h * 0.0165f); p.setFakeBoldText(true);
-        p.setLetterSpacing(0.14f);
-        cv.drawText("BLACKJACK PAYS 3 TO 2", w / 2f, h * 0.332f, p);
-        p.setTextSize(h * 0.0125f); p.setColor(0x80FFD700); p.setLetterSpacing(0.10f);
-        cv.drawText("DEALER MUST STAND ON ALL 17", w / 2f, h * 0.353f, p);
-        p.setLetterSpacing(0f);
-        p.setFakeBoldText(false);
+        // static table background (felt, lighting, rail, arcs, markings) cached as a bitmap
+        if (bgCache == null || bgW != w || bgH != h) { buildBackground(w, h); bgW = w; bgH = h; }
+        cv.drawBitmap(bgCache, 0, 0, null);
 
         // shoe (deck) at right edge
         drawShoe(cv, w, h);
