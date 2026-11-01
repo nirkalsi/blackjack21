@@ -76,6 +76,18 @@ public class BlackjackView extends View {
 
     // lifetime stats (persisted in app prefs)
     private boolean statsOpen = false;
+    private int cosBack = 0;
+    private static final int[] BACK_UNLOCK_LEVEL = {1, 2, 4, 6, 9};
+    private static final int[][] BACK_STYLE = {
+            {0xFFB71C2E, 0xFF6E0F1C, 0xFFD4AF37, 0x33FFD4AF},  // classic red
+            {0xFF16324F, 0xFF081226, 0xFFB8CCE8, 0x33B8D4FF},  // midnight
+            {0xFF0E5A38, 0xFF062A1A, 0xFFD4AF37, 0x33FFE9B0},  // emerald
+            {0xFF4A1D6E, 0xFF1E0A38, 0xFFD4AF37, 0x33FFD4AF},  // royal
+            {0xFF23232B, 0xFF0A0A10, 0xFFD4AF37, 0x26FFD4AF},  // onyx
+    };
+
+    static int backCount() { return BACK_STYLE.length; }
+    static int backUnlockLevel(int v) { return BACK_UNLOCK_LEVEL[v]; }
     private long stHands, stWins, stPushes, stBlackjacks, stBiggest, stStreak, stBestStreak;
 
     private void loadStats() {
@@ -87,6 +99,8 @@ public class BlackjackView extends View {
         stBiggest = sp.getLong("st_biggest", 0);
         stStreak = sp.getLong("st_streak", 0);
         stBestStreak = sp.getLong("st_best_streak", 0);
+        cosBack = sp.getInt("cos_back", 0);
+        if (cosBack < 0 || cosBack >= BACK_STYLE.length) cosBack = 0;
     }
 
     private void saveStats() {
@@ -473,24 +487,7 @@ public class BlackjackView extends View {
         // face / back body
         rf.set(dx, y, dx + dw, y + h);
         if (showBack) {
-            p.setAlpha(0xFF); p.setShader(new LinearGradient(0, y, 0, y + h, 0xFFB71C2E, 0xFF6E0F1C, Shader.TileMode.CLAMP));
-            cv.drawRoundRect(rf, rad, rad, p);
-            p.setAlpha(0xFF); p.setShader(null);
-            // gold inner border
-            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(2f, dw * 0.022f)); p.setColor(0xFFD4AF37);
-            rf.set(dx + dw * 0.07f, y + h * 0.045f, dx + dw * 0.93f, y + h * 0.955f);
-            cv.drawRoundRect(rf, rad * 0.7f, rad * 0.7f, p);
-            // diamond crosshatch, clipped to the inner panel
-            p.setStrokeWidth(Math.max(1f, dw * 0.012f)); p.setColor(0x33FFD4AF);
-            float step = dw * 0.18f;
-            cv.save();
-            cv.clipRect(dx + dw * 0.08f, y + h * 0.05f, dx + dw * 0.92f, y + h * 0.95f);
-            for (float i = -h; i < h + dw; i += step) {
-                cv.drawLine(dx + dw * 0.07f + i, y + h * 0.045f, dx + dw * 0.07f + i + h * 0.91f * 0.5f, y + h * 0.955f, p);
-                cv.drawLine(dx + dw * 0.07f + i, y + h * 0.955f, dx + dw * 0.07f + i + h * 0.91f * 0.5f, y + h * 0.045f, p);
-            }
-            cv.restore();
-            p.setStyle(Paint.Style.FILL);
+            drawBackFace(cv, dx, y, dw, h, rad, cosBack);
             return;
         }
         // face: warm ivory stock with beveled edge
@@ -1142,10 +1139,39 @@ public class BlackjackView extends View {
         if (statsOpen) drawStatsPanel(cv, w, h);
     }
 
+    private void drawBackFace(Canvas cv, float dx, float y, float dw, float h, float rad, int variant) {
+        int[] st = BACK_STYLE[Math.max(0, Math.min(variant, BACK_STYLE.length - 1))];
+        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, y, 0, y + h, st[0], st[1], Shader.TileMode.CLAMP));
+        rf.set(dx, y, dx + dw, y + h);
+        cv.drawRoundRect(rf, rad, rad, p);
+        p.setAlpha(0xFF); p.setShader(null);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(2f, dw * 0.022f)); p.setColor(st[2]);
+        rf.set(dx + dw * 0.07f, y + h * 0.045f, dx + dw * 0.93f, y + h * 0.955f);
+        cv.drawRoundRect(rf, rad * 0.7f, rad * 0.7f, p);
+        p.setStrokeWidth(Math.max(1f, dw * 0.012f)); p.setColor(st[3]);
+        float step = dw * 0.18f;
+        cv.save();
+        cv.clipRect(dx + dw * 0.08f, y + h * 0.05f, dx + dw * 0.92f, y + h * 0.95f);
+        for (float i = -h; i < h + dw; i += step) {
+            cv.drawLine(dx + dw * 0.07f + i, y + h * 0.045f, dx + dw * 0.07f + i + h * 0.91f * 0.5f, y + h * 0.955f, p);
+            cv.drawLine(dx + dw * 0.07f + i, y + h * 0.955f, dx + dw * 0.07f + i + h * 0.91f * 0.5f, y + h * 0.045f, p);
+        }
+        cv.restore();
+        p.setStyle(Paint.Style.FILL);
+    }
+
+    /** Swatch rect (in panel coordinates) for a cosmetic variant; shared by draw and touch. */
+    private void swatchRect(int w, int h, int v, RectF out) {
+        float pw = w * 0.80f, ph = h * 0.58f, px = (w - pw) / 2f, py = h * 0.205f;
+        float swH = ph * 0.10f, swW = swH / 1.42f, gap = pw * 0.03f;
+        float sx0 = px + pw / 2f - (BACK_STYLE.length * swW + (BACK_STYLE.length - 1) * gap) / 2f;
+        out.set(sx0 + v * (swW + gap), py + ph * 0.835f, sx0 + v * (swW + gap) + swW, py + ph * 0.835f + swH);
+    }
+
     private void drawStatsPanel(Canvas cv, int w, int h) {
         p.setStyle(Paint.Style.FILL); p.setColor(0x90001008);
         cv.drawRect(0, 0, w, h, p);
-        float pw = w * 0.80f, ph = h * 0.46f, px = (w - pw) / 2f, py = h * 0.23f;
+        float pw = w * 0.80f, ph = h * 0.58f, px = (w - pw) / 2f, py = h * 0.205f;
         rf.set(px + 4, py + 6, px + pw + 4, py + ph + 6);
         p.setColor(0x73000000);
         cv.drawRoundRect(rf, pw * 0.06f, pw * 0.06f, p);
@@ -1175,7 +1201,7 @@ public class BlackjackView extends View {
                 {"Current streak", String.valueOf(stStreak)},
                 {"Best streak", String.valueOf(stBestStreak)},
         };
-        float ry = py + ph * 0.22f, rstep = ph * 0.095f;
+        float ry = py + ph * 0.20f, rstep = ph * 0.078f;
         for (int i = 0; i < rows.length; i++) {
             if (i % 2 == 0) {
                 rf.set(px + pw * 0.05f, ry - rstep * 0.62f, px + pw * 0.95f, ry + rstep * 0.38f);
@@ -1189,8 +1215,29 @@ public class BlackjackView extends View {
             p.setFakeBoldText(false);
             ry += rstep;
         }
+        p.setColor(0xFFFFE082); p.setTextSize(h * 0.016f); p.setTextAlign(Paint.Align.CENTER); p.setFakeBoldText(true);
+        cv.drawText("CARD BACK", w / 2f, py + ph * 0.80f, p);
+        p.setFakeBoldText(false);
+        RectF sw = new RectF();
+        for (int v = 0; v < BACK_STYLE.length; v++) {
+            swatchRect(w, h, v, sw);
+            boolean unlocked = level >= BACK_UNLOCK_LEVEL[v];
+            drawBackFace(cv, sw.left, sw.top, sw.width(), sw.height(), sw.width() * 0.10f, v);
+            if (!unlocked) {
+                p.setColor(0xB0001208);
+                cv.drawRoundRect(sw, sw.width() * 0.10f, sw.width() * 0.10f, p);
+                p.setColor(0xFFC9E8D4); p.setTextSize(sw.height() * 0.24f); p.setFakeBoldText(true);
+                cv.drawText("Lv " + BACK_UNLOCK_LEVEL[v], sw.centerX(), sw.centerY() + sw.height() * 0.08f, p);
+                p.setFakeBoldText(false);
+            }
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(v == cosBack ? 4f : 1.5f);
+            p.setColor(v == cosBack ? 0xFFFFD700 : 0x44FFFFFF);
+            cv.drawRoundRect(sw, sw.width() * 0.10f, sw.width() * 0.10f, p);
+            p.setStyle(Paint.Style.FILL);
+        }
         p.setColor(0x66FFFFFF); p.setTextSize(h * 0.013f); p.setTextAlign(Paint.Align.CENTER);
-        cv.drawText("tap anywhere to close", w / 2f, py + ph * 0.97f, p);
+        cv.drawText("tap a back to apply - tap elsewhere to close", w / 2f, py + ph * 0.975f, p);
     }
 
     private long lastTouchAt = System.currentTimeMillis();
@@ -1208,7 +1255,24 @@ public class BlackjackView extends View {
             return true;
         }
         if (statsOpen) {
-            if (e.getAction() == MotionEvent.ACTION_UP) { statsOpen = false; invalidate(); }
+            if (e.getAction() == MotionEvent.ACTION_UP) {
+                RectF sw = new RectF();
+                boolean consumed = false;
+                for (int v = 0; v < BACK_STYLE.length; v++) {
+                    swatchRect(w, h, v, sw);
+                    if (sw.contains(x, y)) {
+                        consumed = true;
+                        if (level >= BACK_UNLOCK_LEVEL[v]) {
+                            cosBack = v;
+                            getContext().getSharedPreferences("blackjack21", Context.MODE_PRIVATE)
+                                    .edit().putInt("cos_back", v).apply();
+                        }
+                        break;
+                    }
+                }
+                if (!consumed) statsOpen = false;
+                invalidate();
+            }
             return true;
         }
 
