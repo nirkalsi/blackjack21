@@ -599,10 +599,23 @@ public class BlackjackView extends View {
         }
         cv.drawRoundRect(rf, dh * 0.5f, dh * 0.5f, p);
         p.setAlpha(0xFF); p.setShader(null);
+        // inner bevel: bright top edge, shaded bottom edge
+        if (enabled) {
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(1.5f, dh * 0.030f));
+            p.setColor(0x59FFFFFF);
+            cv.drawLine(rf.left + dh * 0.45f, rf.top + dh * 0.09f, rf.right - dh * 0.45f, rf.top + dh * 0.09f, p);
+            p.setColor(0x33000000);
+            cv.drawLine(rf.left + dh * 0.45f, rf.bottom - dh * 0.09f, rf.right - dh * 0.45f, rf.bottom - dh * 0.09f, p);
+            p.setStyle(Paint.Style.FILL);
+        }
         // gold rim
         p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(2f, dh * 0.045f));
-        p.setColor(enabled ? 0xCCFFD700 : 0x55FFFFFF);
+        p.setColor(enabled ? 0xE6FFD700 : 0x55FFFFFF);
         cv.drawRoundRect(rf, dh * 0.5f, dh * 0.5f, p);
+        p.setStrokeWidth(Math.max(1f, dh * 0.018f)); p.setColor(enabled ? 0x66FFF3C4 : 0x33FFFFFF);
+        rf.inset(dh * 0.05f, dh * 0.05f);
+        cv.drawRoundRect(rf, dh * 0.45f, dh * 0.45f, p);
+        rf.inset(-dh * 0.05f, -dh * 0.05f);
         p.setStyle(Paint.Style.FILL);
         // gloss highlight
         if (enabled) {
@@ -698,11 +711,21 @@ public class BlackjackView extends View {
         rf.set(pillX, pillY, pillX + pillW, pillY + pillH);
         p.setColor(0x59000000);
         cv.drawRoundRect(rf, pillH / 2, pillH / 2, p);
-        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, pillY, 0, pillY + pillH, 0xE61A2E22, 0xE6050F0B, Shader.TileMode.CLAMP));
+        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, pillY, 0, pillY + pillH, 0xF21E332A, 0xF207130D, Shader.TileMode.CLAMP));
         cv.drawRoundRect(rf, pillH / 2, pillH / 2, p);
         p.setAlpha(0xFF); p.setShader(null);
-        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2f); p.setColor(0xB3FFD700);
+        // glass shine top half
+        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, pillY, 0, pillY + pillH * 0.5f, 0x38FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        rf.set(pillX + pillH * 0.10f, pillY + pillH * 0.08f, pillX + pillW - pillH * 0.10f, pillY + pillH * 0.48f);
+        cv.drawRoundRect(rf, pillH * 0.4f, pillH * 0.4f, p);
+        p.setAlpha(0xFF); p.setShader(null);
+        rf.set(pillX, pillY, pillX + pillW, pillY + pillH);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2f); p.setColor(0xCCFFD700);
         cv.drawRoundRect(rf, pillH / 2, pillH / 2, p);
+        p.setStrokeWidth(1f); p.setColor(0x55FFF3C4);
+        rf.inset(2.5f, 2.5f);
+        cv.drawRoundRect(rf, pillH / 2, pillH / 2, p);
+        rf.inset(-2.5f, -2.5f);
         p.setStyle(Paint.Style.FILL);
         // coin icon
         float coinR = pillH * 0.36f, coinX = pillX + pillH * 0.55f, coinY = pillY + pillH / 2f;
