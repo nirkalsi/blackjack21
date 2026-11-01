@@ -1,6 +1,7 @@
 package nir.com.blackjack21;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.*;
 import android.view.MotionEvent;
 import android.view.View;
@@ -71,7 +72,34 @@ public class BlackjackView extends View {
     private long betBumpAt = 0;         // 0..n index into current buttons
     private long pressedAt = 0;
 
-    public BlackjackView(Context c) { super(c); }
+    public BlackjackView(Context c) { super(c); loadStats(); }
+
+    // lifetime stats (persisted in app prefs)
+    private boolean statsOpen = false;
+    private long stHands, stWins, stPushes, stBlackjacks, stBiggest, stStreak, stBestStreak;
+
+    private void loadStats() {
+        SharedPreferences sp = getContext().getSharedPreferences("blackjack21", Context.MODE_PRIVATE);
+        stHands = sp.getLong("st_hands", 0);
+        stWins = sp.getLong("st_wins", 0);
+        stPushes = sp.getLong("st_pushes", 0);
+        stBlackjacks = sp.getLong("st_blackjacks", 0);
+        stBiggest = sp.getLong("st_biggest", 0);
+        stStreak = sp.getLong("st_streak", 0);
+        stBestStreak = sp.getLong("st_best_streak", 0);
+    }
+
+    private void saveStats() {
+        getContext().getSharedPreferences("blackjack21", Context.MODE_PRIVATE).edit()
+                .putLong("st_hands", stHands)
+                .putLong("st_wins", stWins)
+                .putLong("st_pushes", stPushes)
+                .putLong("st_blackjacks", stBlackjacks)
+                .putLong("st_biggest", stBiggest)
+                .putLong("st_streak", stStreak)
+                .putLong("st_best_streak", stBestStreak)
+                .apply();
+    }
 
     public void setListener(Listener l) { listener = l; }
 
@@ -210,6 +238,19 @@ public class BlackjackView extends View {
         else { GameSounds.play(getContext(), GameSounds.LOSE); message = "Dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
         resultAt = System.currentTimeMillis();
         if (resultKind == 1 || resultKind == 3) spawnParticles();
+        stHands++;
+        if (resultKind == 1 || resultKind == 3) {
+            stWins++;
+            stStreak++;
+            if (stStreak > stBestStreak) stBestStreak = stStreak;
+            if (lastWin > stBiggest) stBiggest = lastWin;
+            if (resultKind == 3) stBlackjacks++;
+        } else if (resultKind == 2) {
+            stPushes++;
+        } else {
+            stStreak = 0;
+        }
+        saveStats();
         phase = 3;
         handsDone++;
         while (xp >= xpNeeded()) {
@@ -775,6 +816,18 @@ public class BlackjackView extends View {
         p.setStyle(Paint.Style.FILL);
         p.setTextSize(spR * 0.9f); p.setTextAlign(Paint.Align.CENTER);
         cv.drawText(GameSounds.isEnabled(getContext()) ? "\uD83D\uDD0A" : "\uD83D\uDD07", spX, spY + spR * 0.32f, p);
+        // stats toggle (mini bar chart)
+        float stX = w * 0.80f;
+        p.setColor(0x66000000);
+        cv.drawCircle(stX, spY, spR, p);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2); p.setColor(0x55FFFFFF);
+        cv.drawCircle(stX, spY, spR, p);
+        p.setStyle(Paint.Style.FILL); p.setColor(0xCCFFD700);
+        for (int bi = 0; bi < 3; bi++) {
+            float bw = spR * 0.26f, bhv = spR * (0.45f + bi * 0.33f);
+            rf.set(stX + (bi - 1) * spR * 0.42f - bw / 2, spY + spR * 0.55f - bhv, stX + (bi - 1) * spR * 0.42f + bw / 2, spY + spR * 0.55f);
+            cv.drawRoundRect(rf, bw * 0.25f, bw * 0.25f, p);
+        }
 
 
         // coin pill
@@ -1085,6 +1138,59 @@ public class BlackjackView extends View {
         } else if (phase == 2 || animating) {
             postInvalidateDelayed(32);
         }
+
+        if (statsOpen) drawStatsPanel(cv, w, h);
+    }
+
+    private void drawStatsPanel(Canvas cv, int w, int h) {
+        p.setStyle(Paint.Style.FILL); p.setColor(0x90001008);
+        cv.drawRect(0, 0, w, h, p);
+        float pw = w * 0.80f, ph = h * 0.46f, px = (w - pw) / 2f, py = h * 0.23f;
+        rf.set(px + 4, py + 6, px + pw + 4, py + ph + 6);
+        p.setColor(0x73000000);
+        cv.drawRoundRect(rf, pw * 0.06f, pw * 0.06f, p);
+        rf.set(px, py, px + pw, py + ph);
+        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, py, 0, py + ph, 0xF21E332A, 0xF207130D, Shader.TileMode.CLAMP));
+        cv.drawRoundRect(rf, pw * 0.06f, pw * 0.06f, p);
+        p.setAlpha(0xFF); p.setShader(null);
+        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, py, 0, py + ph * 0.4f, 0x30FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        rf.set(px + pw * 0.03f, py + ph * 0.03f, px + pw * 0.97f, py + ph * 0.38f);
+        cv.drawRoundRect(rf, pw * 0.05f, pw * 0.05f, p);
+        p.setAlpha(0xFF); p.setShader(null);
+        rf.set(px, py, px + pw, py + ph);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(3f); p.setColor(0xCCFFD700);
+        cv.drawRoundRect(rf, pw * 0.06f, pw * 0.06f, p);
+        p.setStrokeWidth(1.5f); p.setColor(0x55FFF3C4);
+        rf.inset(4f, 4f);
+        cv.drawRoundRect(rf, pw * 0.05f, pw * 0.05f, p);
+        p.setStyle(Paint.Style.FILL);
+        drawFancyText(cv, "LIFETIME STATS", w / 2f, py + ph * 0.13f, h * 0.024f, 0xFFFFE082, 0xFFFF8F00);
+        String[][] rows = {
+                {"Hands played", String.valueOf(stHands)},
+                {"Hands won", String.valueOf(stWins)},
+                {"Pushes", String.valueOf(stPushes)},
+                {"Win rate", stHands > 0 ? String.format(java.util.Locale.US, "%.1f%%", 100f * stWins / stHands) : "-"},
+                {"Blackjacks", String.valueOf(stBlackjacks)},
+                {"Biggest win", stBiggest > 0 ? "+" + stBiggest : "-"},
+                {"Current streak", String.valueOf(stStreak)},
+                {"Best streak", String.valueOf(stBestStreak)},
+        };
+        float ry = py + ph * 0.22f, rstep = ph * 0.095f;
+        for (int i = 0; i < rows.length; i++) {
+            if (i % 2 == 0) {
+                rf.set(px + pw * 0.05f, ry - rstep * 0.62f, px + pw * 0.95f, ry + rstep * 0.38f);
+                p.setColor(0x14FFFFFF);
+                cv.drawRoundRect(rf, rstep * 0.2f, rstep * 0.2f, p);
+            }
+            p.setColor(0xFFB9C8B8); p.setTextSize(h * 0.017f); p.setTextAlign(Paint.Align.LEFT); p.setFakeBoldText(false);
+            cv.drawText(rows[i][0], px + pw * 0.09f, ry, p);
+            p.setColor(0xFFFFE082); p.setTextAlign(Paint.Align.RIGHT); p.setFakeBoldText(true);
+            cv.drawText(rows[i][1], px + pw * 0.91f, ry, p);
+            p.setFakeBoldText(false);
+            ry += rstep;
+        }
+        p.setColor(0x66FFFFFF); p.setTextSize(h * 0.013f); p.setTextAlign(Paint.Align.CENTER);
+        cv.drawText("tap anywhere to close", w / 2f, py + ph * 0.97f, p);
     }
 
     private long lastTouchAt = System.currentTimeMillis();
@@ -1095,6 +1201,14 @@ public class BlackjackView extends View {
         if (Math.hypot(x - w * 0.93f, y - getHeight() * 0.042f) <= w * 0.06f) {
             GameSounds.toggle(getContext());
             invalidate();
+            return true;
+        }
+        if (Math.hypot(x - w * 0.80f, y - getHeight() * 0.042f) <= w * 0.06f) {
+            if (e.getAction() == MotionEvent.ACTION_UP) { statsOpen = !statsOpen; invalidate(); }
+            return true;
+        }
+        if (statsOpen) {
+            if (e.getAction() == MotionEvent.ACTION_UP) { statsOpen = false; invalidate(); }
             return true;
         }
 
