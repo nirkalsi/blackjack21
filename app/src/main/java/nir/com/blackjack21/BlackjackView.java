@@ -690,8 +690,8 @@ public class BlackjackView extends View {
         if (inHand) {
             if (kind >= 0) {
                 long mult = pp ? PP_MULT[kind] : TF_MULT[kind];
-                lbl = (pp ? PP_NAMES[kind] : TF_NAMES[kind]) + " +" + (stake * mult);
-                lbl2 = "profit, +" + stake + " stake back";
+                lbl = (pp ? PP_NAMES[kind] : TF_NAMES[kind]) + " +" + (stake * mult) + " profit";
+                lbl2 = "+" + stake + " stake back";
                 col = 0xFFFFD54F; col2 = 0xCCFFD54F;
             }
             else { lbl = "no win"; col = 0xFF7F8FB8; }
@@ -702,11 +702,15 @@ public class BlackjackView extends View {
             lbl = pp ? "x5-x25" : "x5-x100"; col = 0x66FFD700;
         }
         p.setTextSize(h * 0.013f); p.setColor(col); p.setFakeBoldText(inHand && kind >= 0);
-        cv.drawText(lbl, cx, cy + r + h * 0.018f, p);
-        if (lbl2 != null) {
-            p.setFakeBoldText(false); p.setTextSize(h * 0.010f); p.setColor(col2);
-            cv.drawText(lbl2, cx, cy + r + h * 0.033f, p);
-        }
+        if (inHand) {
+            // win line above the circle (the centered result badge owns the band
+            // below); compact stake-back note under the circle, clear of the badge
+            cv.drawText(lbl, cx, cy - r - h * 0.012f, p);
+            if (lbl2 != null) {
+                p.setFakeBoldText(false); p.setTextSize(h * 0.010f); p.setColor(col2);
+                cv.drawText(lbl2, cx, cy + r + h * 0.018f, p);
+            }
+        } else cv.drawText(lbl, cx, cy + r + h * 0.018f, p);
         p.setFakeBoldText(false);
     }
 
