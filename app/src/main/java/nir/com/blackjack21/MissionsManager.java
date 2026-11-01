@@ -73,9 +73,10 @@ public class MissionsManager {
         out.add(mkA("ach5", "Reach level 5", 5, 1500, level, sp.getBoolean("ach5c", false)));
         out.add(mkA("ach6", "3-day daily bonus streak", 1, 800,
             sp.getBoolean("ach6_done", false) ? 1 : 0, sp.getBoolean("ach6c", false)));
-        out.add(mkA("ach7", "Hot streak: win 5 in a row", 5, 800,
+        // rewards 0 = badge-only until coin amounts are approved (proposed: 800 / 1200)
+        out.add(mkA("ach7", "Hot streak: win 5 in a row", 5, 0,
             sp.getLong("st_best_streak", 0), sp.getBoolean("ach7c", false)));
-        out.add(mkA("ach8", "Five blackjacks", 5, 1200,
+        out.add(mkA("ach8", "Five blackjacks", 5, 0,
             sp.getLong("st_blackjacks", 0), sp.getBoolean("ach8c", false)));
         return out;
     }
