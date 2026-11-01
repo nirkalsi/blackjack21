@@ -36,6 +36,21 @@ public class SideBetsCaptureTest {
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     @Test public void capture() throws Exception {
         new File("/tmp/frames-bj-sidebets").mkdirs();
+        // small-screen betting check (720x1480)
+        BlackjackView vs = new BlackjackView(RuntimeEnvironment.getApplication());
+        vs.measure(View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY),
+                  View.MeasureSpec.makeMeasureSpec(1480, View.MeasureSpec.EXACTLY));
+        vs.layout(0, 0, 720, 1480);
+        set(vs, "balance", 8_900L);
+        set(vs, "betIdx", 2);
+        set(vs, "ppOn", Boolean.TRUE);
+        set(vs, "tfOn", Boolean.TRUE);
+        set(vs, "shownBalance", 8_900L);
+        Bitmap bmps = Bitmap.createBitmap(720, 1480, Bitmap.Config.ARGB_8888);
+        vs.draw(new Canvas(bmps));
+        FileOutputStream os = new FileOutputStream("/tmp/frames-bj-sidebets/betting_small.png");
+        bmps.compress(Bitmap.CompressFormat.PNG, 100, os); os.close();
+
         // state 1: betting, both side bets on
         BlackjackView v = new BlackjackView(RuntimeEnvironment.getApplication());
         v.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
@@ -45,6 +60,7 @@ public class SideBetsCaptureTest {
         set(v, "betIdx", 2);
         set(v, "ppOn", Boolean.TRUE);
         set(v, "tfOn", Boolean.TRUE);
+        set(v, "shownBalance", 8_900L);
         Bitmap bmp = Bitmap.createBitmap(1080, 2243, Bitmap.Config.ARGB_8888);
         v.draw(new Canvas(bmp));
         FileOutputStream o = new FileOutputStream("/tmp/frames-bj-sidebets/betting.png");
@@ -59,13 +75,19 @@ public class SideBetsCaptureTest {
         // force: player 8h 8d (colored pair), dealer Kc + 6s; re-evaluate sides
         pl.set(0, 6); ps.set(0, 1); pl.set(1, 6); ps.set(1, 2);
         dl.set(0, 12); ds.set(0, 3); dl.set(1, 4); ds.set(1, 0);
+        // dealer K+5 = 15 must draw (stands on all 17): force the 4 of hearts -> 19
+        dl.add(3); ds.add(1);
+        assertTrue(BlackjackView.score(dl) == 19);
         set(v, "ppKind", BlackjackView.evalPerfectPairs(6, 1, 6, 2));
         set(v, "tfKind", BlackjackView.evalTwentyOneThree(6, 1, 6, 2, 12, 3));
         List<Long> pt = get(v, "playerCardT"), dt = get(v, "dealerCardT");
+        dt.add(System.currentTimeMillis());
         for (int i = 0; i < pt.size(); i++) pt.set(i, 0L);
         for (int i = 0; i < dt.size(); i++) dt.set(i, 0L);
         Method settle = BlackjackView.class.getDeclaredMethod("settle"); settle.setAccessible(true);
         settle.invoke(v);
+        set(v, "shownBalance", get(v, "balance")); // complete the balance tween for the still frame
+        set(v, "particlesOn", Boolean.FALSE);      // coin burst is a ~1s effect; show the settled table
         set(v, "flipStartAt", System.currentTimeMillis() - 5000);
         Bitmap bmp2 = Bitmap.createBitmap(1080, 2243, Bitmap.Config.ARGB_8888);
         v.draw(new Canvas(bmp2));

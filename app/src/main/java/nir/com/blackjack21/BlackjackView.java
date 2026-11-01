@@ -192,6 +192,9 @@ public class BlackjackView extends View {
     }
     static int val(int rankIdx) { return rankIdx == 0 ? 11 : Math.min(10, rankIdx + 1); }
 
+    /** Dealer stands on all 17 (soft 17 stands). Used by the onDraw dealer loop. */
+    static boolean dealerShouldDraw(List<Integer> dealer) { return score(dealer) < 17; }
+
     static int score(List<Integer> hand) {
         int s = 0, aces = 0;
         for (int r : hand) { s += val(r); if (r == 0) aces++; }
@@ -683,8 +686,14 @@ public class BlackjackView extends View {
         p.setFakeBoldText(false);
         // label under the spot
         String lbl; int col;
+        String lbl2 = null; int col2 = 0;
         if (inHand) {
-            if (kind >= 0) { lbl = (pp ? PP_NAMES[kind] : TF_NAMES[kind]) + " +" + (stake * (pp ? PP_MULT[kind] : TF_MULT[kind])); col = 0xFFFFD54F; }
+            if (kind >= 0) {
+                long mult = pp ? PP_MULT[kind] : TF_MULT[kind];
+                lbl = (pp ? PP_NAMES[kind] : TF_NAMES[kind]) + " +" + (stake * mult);
+                lbl2 = "profit, +" + stake + " stake back";
+                col = 0xFFFFD54F; col2 = 0xCCFFD54F;
+            }
             else { lbl = "no win"; col = 0xFF7F8FB8; }
         } else if (on) {
             int n = sideCount();
@@ -694,6 +703,10 @@ public class BlackjackView extends View {
         }
         p.setTextSize(h * 0.013f); p.setColor(col); p.setFakeBoldText(inHand && kind >= 0);
         cv.drawText(lbl, cx, cy + r + h * 0.018f, p);
+        if (lbl2 != null) {
+            p.setFakeBoldText(false); p.setTextSize(h * 0.010f); p.setColor(col2);
+            cv.drawText(lbl2, cx, cy + r + h * 0.033f, p);
+        }
         p.setFakeBoldText(false);
     }
 
@@ -1233,7 +1246,7 @@ public class BlackjackView extends View {
 
         // ---- state machine tick ----
         if (phase == 2 && now >= dealerNextAt) {
-            if (score(dealer) < 17) {
+            if (dealerShouldDraw(dealer)) {
                 dealer.add(draw());
                 dealerSuits.add(drawSuit());
                 dealerCardT.add(now);
