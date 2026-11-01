@@ -669,6 +669,9 @@ public class BlackjackView extends View {
         long stake = pp ? ppStake : tfStake;
         int kind = pp ? ppKind : tfKind;
         boolean inHand = phase != 0 && stake > 0;
+        // while the transient result banner owns the center lane (~2.1s), the
+        // stake-back footnote under the spot waits - the win line above stays
+        boolean bannerUp = resultKind >= 0 && System.currentTimeMillis() - resultAt < 2100 && !levelUpShowing;
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(on || inHand ? w * 0.007f : w * 0.004f);
         p.setColor(on || inHand ? 0xCCFFD54F : 0x44FFD700);
@@ -706,7 +709,7 @@ public class BlackjackView extends View {
             // win line above the circle (the centered result badge owns the band
             // below); compact stake-back note under the circle, clear of the badge
             cv.drawText(lbl, cx, cy - r - h * 0.012f, p);
-            if (lbl2 != null) {
+            if (lbl2 != null && !bannerUp) {
                 p.setFakeBoldText(false); p.setTextSize(h * 0.010f); p.setColor(col2);
                 cv.drawText(lbl2, cx, cy + r + h * 0.018f, p);
             }
@@ -1117,10 +1120,21 @@ public class BlackjackView extends View {
                 p.setStyle(Paint.Style.FILL);
             }
             // dark glass plaque with gold frame behind the result
+            // Keep the plaque inside the free center lane between the side-bet
+            // spots (0.33w..0.67w): shrink text to fit rather than covering them.
             p.setTextSize(tsz); p.setFakeBoldText(true);
             float tw = p.measureText(text);
             p.setFakeBoldText(false);
-            float plW = tw + w * 0.15f, plH = tsz * 1.75f;
+            float k = tw / tsz;
+            float maxPlW = w * 0.34f;
+            float fit = maxPlW / (k + 2.2f);
+            if (fit < tsz) {
+                tsz = Math.max(fit, h * 0.016f);
+                p.setTextSize(tsz); p.setFakeBoldText(true);
+                tw = p.measureText(text);
+                p.setFakeBoldText(false);
+            }
+            float plW = tw + tsz * 2.2f, plH = tsz * 1.75f;
             rf.set(w / 2f - plW / 2f, h * 0.455f - plH * 0.70f, w / 2f + plW / 2f, h * 0.455f + plH * 0.30f);
             p.setStyle(Paint.Style.FILL);
             p.setAlpha(0xFF); p.setShader(new LinearGradient(0, rf.top, 0, rf.bottom, 0xE6121F1A, 0xE6040B08, Shader.TileMode.CLAMP));

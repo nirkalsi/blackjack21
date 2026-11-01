@@ -90,6 +90,23 @@ public class SideBetsCaptureTest {
             FileOutputStream or = new FileOutputStream("/tmp/frames-bj-sidebets/result_" + sz[0] + "x" + sz[1] + ".png");
             br.compress(Bitmap.CompressFormat.PNG, 100, or); or.close();
         }
+
+        // persistent settled state after the 2.1s banner window (720x1480):
+        // banner gone, all labels + wager text visible simultaneously
+        BlackjackView vp = new BlackjackView(RuntimeEnvironment.getApplication());
+        vp.measure(View.MeasureSpec.makeMeasureSpec(720, View.MeasureSpec.EXACTLY),
+                  View.MeasureSpec.makeMeasureSpec(1480, View.MeasureSpec.EXACTLY));
+        vp.layout(0, 0, 720, 1480);
+        set(vp, "balance", 8_900L);
+        set(vp, "betIdx", 2);
+        set(vp, "ppOn", Boolean.TRUE);
+        set(vp, "tfOn", Boolean.TRUE);
+        settleState(vp);
+        set(vp, "resultAt", System.currentTimeMillis() - 5000); // banner window over
+        Bitmap bp = Bitmap.createBitmap(720, 1480, Bitmap.Config.ARGB_8888);
+        vp.draw(new Canvas(bp));
+        FileOutputStream op = new FileOutputStream("/tmp/frames-bj-sidebets/result_post_banner_720x1480.png");
+        bp.compress(Bitmap.CompressFormat.PNG, 100, op); op.close();
     }
 
     /** Deals, forces player 7h+7d (colored pair) vs dealer Kc+5s then a forced 4h
@@ -117,5 +134,6 @@ public class SideBetsCaptureTest {
         set(v, "shownBalance", get(v, "balance")); // complete the balance tween for the still frame
         set(v, "particlesOn", Boolean.FALSE);      // coin burst is a ~1s effect; show the settled table
         set(v, "flipStartAt", System.currentTimeMillis() - 5000);
+        set(v, "resultAt", System.currentTimeMillis() - 1000); // banner fully scaled in (380ms), still inside its 2.1s window
     }
 }
