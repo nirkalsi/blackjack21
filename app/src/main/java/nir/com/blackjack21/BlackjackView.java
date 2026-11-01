@@ -103,13 +103,48 @@ public class BlackjackView extends View {
     }
 
     private int draw() { return rng.nextInt(13); }
-    private int val(int rankIdx) { return rankIdx == 0 ? 11 : Math.min(10, rankIdx + 1); }
+    static int val(int rankIdx) { return rankIdx == 0 ? 11 : Math.min(10, rankIdx + 1); }
 
-    private int score(List<Integer> hand) {
+    static int score(List<Integer> hand) {
         int s = 0, aces = 0;
         for (int r : hand) { s += val(r); if (r == 0) aces++; }
         while (s > 21 && aces > 0) { s -= 10; aces--; }
         return s;
+    }
+
+    /** Simplified basic strategy (dealer stands on all 17, no split/surrender).
+     *  Returns 0=HIT, 1=STAND, 2=DOUBLE. Not a guaranteed-optimal engine. */
+    static int basicStrategyMove(List<Integer> playerRanks, int dealerUpRank, boolean canDouble) {
+        int s = score(playerRanks);
+        boolean soft = isSoft(playerRanks);
+        int up = dealerUpRank == 0 ? 11 : Math.min(10, dealerUpRank + 1);
+        int move;
+        if (soft) {
+            if (s >= 19) move = 1;
+            else if (s == 18) {
+                if (up >= 3 && up <= 6) move = 2;
+                else if (up == 2 || up == 7 || up == 8) move = 1;
+                else move = 0;
+            } else if (s == 17) move = (up >= 3 && up <= 6) ? 2 : 0;
+            else move = (up >= 4 && up <= 6) ? 2 : 0; // soft 13-16
+        } else {
+            if (s >= 17) move = 1;
+            else if (s >= 13) move = (up >= 2 && up <= 6) ? 1 : 0;
+            else if (s == 12) move = (up >= 4 && up <= 6) ? 1 : 0;
+            else if (s == 11) move = (up >= 2 && up <= 10) ? 2 : 0;
+            else if (s == 10) move = (up >= 2 && up <= 9) ? 2 : 0;
+            else if (s == 9) move = (up >= 3 && up <= 6) ? 2 : 0;
+            else move = 0; // 8 or less
+        }
+        if (move == 2 && !canDouble) move = (soft && s == 18) ? 1 : 0;
+        return move;
+    }
+
+    static boolean isSoft(List<Integer> hand) {
+        int s = 0, aces = 0;
+        for (int r : hand) { s += val(r); if (r == 0) aces++; }
+        while (s > 21 && aces > 0) { s -= 10; aces--; }
+        return aces > 0;
     }
 
     private void deal() {
@@ -978,6 +1013,22 @@ public class BlackjackView extends View {
             drawPillButton(cv, w * 0.05f, h * 0.76f, w * 0.28f, bh, "HIT", 0xFF43A047, 0xFF1B5E20, true, pressedBtn == 1, 0);
             drawPillButton(cv, w * 0.36f, h * 0.76f, w * 0.28f, bh, "STAND", 0xFFE53935, 0xFF8E0000, true, pressedBtn == 2, 0);
             drawPillButton(cv, w * 0.67f, h * 0.76f, w * 0.28f, bh, "DOUBLE", 0xFF1E88E5, 0xFF0D47A1, canDouble, pressedBtn == 3, 0);
+            if (!dealer.isEmpty()) {
+                int hint = basicStrategyMove(player, dealer.get(0), canDouble);
+                float hx = w * (hint == 0 ? 0.05f : hint == 1 ? 0.36f : 0.67f);
+                float pl2 = 0.55f + 0.45f * (float) Math.sin(now / 300.0);
+                rf.set(hx - w * 0.008f, h * 0.76f - bh * 0.08f, hx + w * 0.28f + w * 0.008f, h * 0.76f + bh * 1.08f);
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(w * 0.006f);
+                p.setColor(((int) (0xA6 * pl2) << 24) | 0x9FD8FF);
+                cv.drawRoundRect(rf, bh * 0.55f, bh * 0.55f, p);
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(((int) (0xD8 * pl2) << 24) | 0xCFE8FF);
+                p.setTextSize(h * 0.014f); p.setTextAlign(Paint.Align.CENTER); p.setFakeBoldText(true);
+                cv.drawText("SUGGESTED", hx + w * 0.14f, h * 0.76f + bh + h * 0.024f, p);
+                p.setFakeBoldText(false);
+                animating = true;
+            }
         } else {
             for (int i = 0; i < 3; i++) {
                 float a = 0.35f + 0.65f * (float) (0.5 + 0.5 * Math.sin(now / 300.0 - i * 0.9));
