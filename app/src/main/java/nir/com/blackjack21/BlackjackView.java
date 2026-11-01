@@ -463,14 +463,14 @@ public class BlackjackView extends View {
                 p.setFakeBoldText(false);
             } else if (rankIdx == 0) {
                 // ace: one large elegant pip
-                p.setTextSize(w * 0.78f);
-                cv.drawText(SUITS[suit], cx, y + h * 0.80f, p);
+                p.setTextSize(w * 0.72f);
+                cv.drawText(SUITS[suit], cx, y + h * 0.795f, p);
             } else {
                 // number cards: classic pip layouts
-                float pip = w * 0.30f;
+                float pip = w * 0.26f;
                 float xl = dx + dw * 0.315f, xr = dx + dw * 0.685f, xc = cx;
-                float y1 = y + h * 0.30f, y2 = y + h * 0.435f, y3 = y + h * 0.565f, y4 = y + h * 0.70f;
-                float ym = y + h * 0.50f, yu = y + h * 0.365f, yd = y + h * 0.635f;
+                float y1 = y + h * 0.365f, y2 = y + h * 0.47f, y3 = y + h * 0.575f, y4 = y + h * 0.68f;
+                float ym = y + h * 0.5225f, yu = y + h * 0.4175f, yd = y + h * 0.6275f;
                 int n = rankIdx + 1; // 2..10
                 p.setTextSize(pip);
                 java.util.List<float[]> pts = new java.util.ArrayList<>();
@@ -853,9 +853,11 @@ public class BlackjackView extends View {
             }
             for (int i = 0; i < stackChips.size(); i++)
                 drawChip(cv, spotX, spotY - i * spotR * 0.22f, spotR * 0.42f, CHIP_COLORS[stackChips.get(i)], "", false);
-            p.setColor(0xFFFFFFFF); p.setTextSize(h * 0.016f); p.setTextAlign(Paint.Align.CENTER); p.setFakeBoldText(true);
-            cv.drawText("" + currentBet, spotX, spotY + spotR * 1.35f, p);
-            p.setFakeBoldText(false);
+            if (!(resultKind >= 0 && now - resultAt < 2100)) {
+                p.setColor(0xFFFFFFFF); p.setTextSize(h * 0.016f); p.setTextAlign(Paint.Align.CENTER); p.setFakeBoldText(true);
+                cv.drawText("" + currentBet, spotX, spotY + spotR * 1.35f, p);
+                p.setFakeBoldText(false);
+            }
         } else {
             p.setColor(0x55FFFFFF); p.setTextSize(h * 0.014f); p.setTextAlign(Paint.Align.CENTER);
             cv.drawText("BET SPOT", spotX, spotY + h * 0.005f, p);
@@ -874,7 +876,7 @@ public class BlackjackView extends View {
                 default: text = message.toUpperCase(); topC = 0xFFEF9A9A; botC = 0xFFC62828;
             }
             cv.save();
-            cv.scale(sc, sc, w / 2f, h * 0.45f);
+            cv.scale(sc, sc, w / 2f, h * 0.455f);
             float tsz = h * 0.034f * (resultKind == 3 ? 1.25f : 1f);
             // radiating light rays behind the plaque on wins
             if (resultKind == 1 || resultKind == 3) {
@@ -887,8 +889,8 @@ public class BlackjackView extends View {
                     int al = (int) (resultKind == 3 ? 90 : 55 * (1f - rayT * 0.5f));
                     p.setStrokeWidth(w * 0.010f);
                     p.setColor((al << 24) | 0xFFD700);
-                    cv.drawLine(w / 2f + (float) Math.cos(a) * inn, h * 0.45f + (float) Math.sin(a) * inn * 0.5f,
-                            w / 2f + (float) Math.cos(a) * out, h * 0.45f + (float) Math.sin(a) * out * 0.5f, p);
+                    cv.drawLine(w / 2f + (float) Math.cos(a) * inn, h * 0.455f + (float) Math.sin(a) * inn * 0.5f,
+                            w / 2f + (float) Math.cos(a) * out, h * 0.455f + (float) Math.sin(a) * out * 0.5f, p);
                 }
                 p.setStyle(Paint.Style.FILL);
             }
@@ -896,8 +898,8 @@ public class BlackjackView extends View {
             p.setTextSize(tsz); p.setFakeBoldText(true);
             float tw = p.measureText(text);
             p.setFakeBoldText(false);
-            float plW = tw + w * 0.16f, plH = tsz * 1.9f;
-            rf.set(w / 2f - plW / 2f, h * 0.45f - plH * 0.72f, w / 2f + plW / 2f, h * 0.45f + plH * 0.28f);
+            float plW = tw + w * 0.15f, plH = tsz * 1.75f;
+            rf.set(w / 2f - plW / 2f, h * 0.455f - plH * 0.70f, w / 2f + plW / 2f, h * 0.455f + plH * 0.30f);
             p.setStyle(Paint.Style.FILL);
             p.setAlpha(0xFF); p.setShader(new LinearGradient(0, rf.top, 0, rf.bottom, 0xE6121F1A, 0xE6040B08, Shader.TileMode.CLAMP));
             cv.drawRoundRect(rf, plH * 0.42f, plH * 0.42f, p);
@@ -908,7 +910,7 @@ public class BlackjackView extends View {
             rf.inset(tsz * 0.09f, tsz * 0.09f);
             cv.drawRoundRect(rf, plH * 0.36f, plH * 0.36f, p);
             p.setStyle(Paint.Style.FILL);
-            drawFancyText(cv, text, w / 2f, h * 0.45f, tsz, topC, botC);
+            drawFancyText(cv, text, w / 2f, h * 0.455f, tsz, topC, botC);
             cv.restore();
             if (particlesOn) {
                 float pt = (now - resultAt) / 1000f;
