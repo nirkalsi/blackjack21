@@ -243,16 +243,25 @@ public class BlackjackView extends View {
         float shX = w * 0.885f, shY = h * 0.20f;
         for (int i = 2; i >= 0; i--) {
             float ox = shX + i * shW * 0.06f, oy = shY - i * shH * 0.04f;
-            rf.set(ox, oy, ox + shW, oy + shH);
-            p.setStyle(Paint.Style.FILL); p.setColor(0x66000000);
+            rf.set(ox + shW * 0.03f, oy + shH * 0.035f, ox + shW * 1.03f, oy + shH * 1.035f);
+            p.setStyle(Paint.Style.FILL); p.setColor(0x73000000);
             cv.drawRoundRect(rf, shW * 0.1f, shW * 0.1f, p);
             rf.set(ox - shW * 0.02f, oy - shH * 0.02f, ox + shW * 0.98f, oy + shH * 0.98f);
-            p.setAlpha(0xFF); p.setShader(new LinearGradient(0, oy, 0, oy + shH, 0xFFB71C2E, 0xFF6E0F1C, Shader.TileMode.CLAMP));
+            p.setAlpha(0xFF); p.setShader(new LinearGradient(0, oy, 0, oy + shH, 0xFF8E1620, 0xFF3F0810, Shader.TileMode.CLAMP));
             cv.drawRoundRect(rf, shW * 0.1f, shW * 0.1f, p);
             p.setAlpha(0xFF); p.setShader(null);
-            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(1.5f, shW * 0.025f)); p.setColor(0xFFD4AF37);
+            // top sheen
+            p.setAlpha(0xFF); p.setShader(new LinearGradient(0, oy, 0, oy + shH * 0.30f, 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+            rf.set(ox, oy, ox + shW * 0.96f, oy + shH * 0.30f);
+            cv.drawRoundRect(rf, shW * 0.09f, shW * 0.09f, p);
+            p.setAlpha(0xFF); p.setShader(null);
+            // brass frame
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(2f, shW * 0.030f)); p.setColor(0xFFD8B45A);
             rf.set(ox + shW * 0.05f, oy + shH * 0.03f, ox + shW * 0.91f, oy + shH * 0.93f);
             cv.drawRoundRect(rf, shW * 0.07f, shW * 0.07f, p);
+            p.setStrokeWidth(Math.max(1f, shW * 0.012f)); p.setColor(0x66FFF3C4);
+            rf.inset(shW * 0.03f, shW * 0.03f);
+            cv.drawRoundRect(rf, shW * 0.05f, shW * 0.05f, p);
             p.setStyle(Paint.Style.FILL);
         }
     }
@@ -700,11 +709,17 @@ public class BlackjackView extends View {
         float lvR = w * 0.055f, lvX = w * 0.10f, lvY = h * 0.045f;
         p.setStyle(Paint.Style.FILL); p.setColor(0x55000000);
         cv.drawCircle(lvX + 2, lvY + 3, lvR, p);
-        p.setAlpha(0xFF); p.setShader(new RadialGradient(lvX - lvR * 0.3f, lvY - lvR * 0.35f, lvR * 1.9f, 0xFF3D6FB5, 0xFF0B2A52, Shader.TileMode.CLAMP));
+        p.setAlpha(0xFF); p.setShader(new RadialGradient(lvX - lvR * 0.3f, lvY - lvR * 0.35f, lvR * 1.9f, 0xFF2E4E86, 0xFF081C3E, Shader.TileMode.CLAMP));
         cv.drawCircle(lvX, lvY, lvR, p);
         p.setAlpha(0xFF); p.setShader(null);
-        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(lvR * 0.09f); p.setColor(0xCCFFD700);
+        // glass shine
+        p.setAlpha(0xFF); p.setShader(new LinearGradient(0, lvY - lvR, 0, lvY, 0x40FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+        cv.drawCircle(lvX, lvY, lvR * 0.96f, p);
+        p.setAlpha(0xFF); p.setShader(null);
+        p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(lvR * 0.09f); p.setColor(0xE6D8B45A);
         cv.drawCircle(lvX, lvY, lvR * 0.94f, p);
+        p.setStrokeWidth(lvR * 0.035f); p.setColor(0x80FFF3C4);
+        cv.drawCircle(lvX, lvY, lvR * 0.85f, p);
         float xpFrac = Math.min(1f, xp / (float) xpNeeded());
         p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(lvR * 0.18f); p.setColor(0x33FFFFFF);
         cv.drawCircle(lvX, lvY, lvR * 0.82f, p);
