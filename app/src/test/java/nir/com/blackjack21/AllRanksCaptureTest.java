@@ -31,19 +31,19 @@ public class AllRanksCaptureTest {
         Bitmap bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
         c.drawColor(0xFF1E6E46);
-        Method dc = BlackjackView.class.getDeclaredMethod("drawCard", Canvas.class, int.class,
+        Method dc = BlackjackView.class.getDeclaredMethod("drawCard", Canvas.class, int.class, int.class,
                 float.class, float.class, float.class, float.class, boolean.class, float.class);
         dc.setAccessible(true);
         for (int r = 1; r <= 9; r++) { // 2..10
             float x = 20 + ((r - 1) % 5) * (cw + 12);
             float y = 40 + ((r - 1) / 5) * (ch + 30);
-            dc.invoke(v, c, r, x, y, cw, ch, false, 1f);
+            dc.invoke(v, c, r, r % 4, x, y, cw, ch, false, 1f);
         }
         int[] faces = {0, 10, 11, 12};
         for (int i = 0; i < faces.length; i++) {
             float x = 20 + i * (cw + 12);
             float y = 40 + 2 * (ch + 30);
-            dc.invoke(v, c, faces[i], x, y, cw, ch, false, 1f);
+            dc.invoke(v, c, faces[i], i % 4, x, y, cw, ch, false, 1f);
         }
         FileOutputStream fos = new FileOutputStream("/tmp/frames-bj-ranks/all.png");
         bmp.compress(Bitmap.CompressFormat.PNG, 80, fos);

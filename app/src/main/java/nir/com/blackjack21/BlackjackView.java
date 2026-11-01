@@ -26,6 +26,19 @@ public class BlackjackView extends View {
     private static final String[] RANKS = {"A","2","3","4","5","6","7","8","9","10","J","Q","K"};
 
     private final Random rng = new Random();
+    // independent per-card suits (approved by Nir 01.11, WhatsApp). Cards are still ranks 0..12
+    // drawn independently (infinite-shoe); each card also gets an independent suit 0..3.
+    // 0=spades 1=hearts 2=diamonds 3=clubs. Display + side bets only; 21 rules unchanged.
+    private final List<Integer> playerSuits = new ArrayList<>();
+    private final List<Integer> dealerSuits = new ArrayList<>();
+    // side bets (approved 01.11): Perfect Pairs + 21+3, TOTAL side stake <= main bet.
+    private boolean ppOn = false, tfOn = false;
+    private long ppStake = 0, tfStake = 0;
+    private int ppKind = -1, tfKind = -1;   // evaluated at deal; -1 = no win
+    static final long[] PP_MULT = {5, 10, 25};           // mixed, colored, perfect
+    static final String[] PP_NAMES = {"MIXED PAIR", "COLORED PAIR", "PERFECT PAIR"};
+    static final long[] TF_MULT = {5, 9, 30, 40, 100};   // flush, straight, trips, SF, suited trips
+    static final String[] TF_NAMES = {"FLUSH", "STRAIGHT", "3 OF A KIND", "STRAIGHT FLUSH", "SUITED TRIPS"};
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rf = new RectF();
     private Listener listener;
@@ -123,7 +136,7 @@ public class BlackjackView extends View {
     public long getSpinsDone() { return handsDone; }
     private long xpNeeded() { return level * 500L; }
 
-    public String serialize() { return balance + ";" + betIdx + ";" + handsDone + ";" + lastRegenAt + ";" + xp + ";" + level; }
+    public String serialize() { return balance + ";" + betIdx + ";" + handsDone + ";" + lastRegenAt + ";" + xp + ";" + level + ";" + ((ppOn ? 1 : 0) + (tfOn ? 2 : 0)); }
 
     public void restore(String s) {
         try {
@@ -135,6 +148,7 @@ public class BlackjackView extends View {
             lastRegenAt = Long.parseLong(a[3]);
             if (a.length > 4) xp = Long.parseLong(a[4]);
             if (a.length > 5) level = Math.max(1, Integer.parseInt(a[5]));
+            if (a.length > 6) { int f6 = Integer.parseInt(a[6]); ppOn = (f6 & 1) != 0; tfOn = (f6 & 2) != 0; }
         } catch (Exception ignored) {}
     }
 
@@ -145,6 +159,37 @@ public class BlackjackView extends View {
     }
 
     private int draw() { return rng.nextInt(13); }
+    private int drawSuit() { return rng.nextInt(4); }
+
+    /** Perfect Pairs on the player's first two cards: 0 mixed, 1 colored, 2 perfect, -1 no pair. */
+    static int evalPerfectPairs(int r0, int s0, int r1, int s1) {
+        if (r0 != r1) return -1;
+        if (s0 == s1) return 2;
+        boolean red0 = s0 == 1 || s0 == 2, red1 = s1 == 1 || s1 == 2;
+        return red0 == red1 ? 1 : 0;
+    }
+
+    /** 21+3 on player's two cards + dealer upcard; only the highest category pays.
+     *  0 flush, 1 straight, 2 trips, 3 straight flush, 4 suited trips, -1 no win. */
+    static int evalTwentyOneThree(int r0, int s0, int r1, int s1, int r2, int s2) {
+        boolean flush = s0 == s1 && s1 == s2;
+        boolean trips = r0 == r1 && r1 == r2;
+        int a = Math.min(r0, Math.min(r1, r2)), c = Math.max(r0, Math.max(r1, r2));
+        int b = r0 + r1 + r2 - a - c;
+        boolean straight = (a != c) && ((b == a + 1 && c == b + 1) || (a == 0 && b == 11 && c == 12));
+        if (trips) return flush ? 4 : 2;
+        if (straight) return flush ? 3 : 1;
+        if (flush) return 0;
+        return -1;
+    }
+
+    private int sideCount() { return (ppOn ? 1 : 0) + (tfOn ? 1 : 0); }
+    private long sideTotal() { int n = sideCount(); return n == 0 ? 0 : (BETS[betIdx] / n) * n; }
+    private long totalWager() { return BETS[betIdx] + sideTotal(); }
+    private long sideNet() {
+        return (ppKind >= 0 ? ppStake * PP_MULT[ppKind] : -ppStake)
+             + (tfKind >= 0 ? tfStake * TF_MULT[tfKind] : -tfStake);
+    }
     static int val(int rankIdx) { return rankIdx == 0 ? 11 : Math.min(10, rankIdx + 1); }
 
     static int score(List<Integer> hand) {
@@ -192,16 +237,26 @@ public class BlackjackView extends View {
     private void deal() {
         GameSounds.play(getContext(), GameSounds.CARD);
         long bet = BETS[betIdx];
-        if (balance < bet) { if (listener != null) listener.onOutOfCoins(); return; }
-        balance -= bet;
-        xp += BETS[betIdx];
+        int nSide = sideCount();
+        ppStake = ppOn ? bet / nSide : 0;
+        tfStake = tfOn ? bet / nSide : 0;
+        long total = bet + ppStake + tfStake;
+        if (balance < total) { if (listener != null) listener.onOutOfCoins(); return; }
+        balance -= total;
+        xp += total;
+        ppKind = -1; tfKind = -1;
         doubled = false;
         resultKind = -1; particlesOn = false; levelUpShowing = false;
-        player.clear(); dealer.clear(); playerCardT.clear(); dealerCardT.clear();
+        player.clear(); dealer.clear(); playerSuits.clear(); dealerSuits.clear(); playerCardT.clear(); dealerCardT.clear();
         long now = System.currentTimeMillis();
-        player.add(draw()); dealer.add(draw()); player.add(draw()); dealer.add(draw());
+        player.add(draw()); playerSuits.add(drawSuit());
+        dealer.add(draw()); dealerSuits.add(drawSuit());
+        player.add(draw()); playerSuits.add(drawSuit());
+        dealer.add(draw()); dealerSuits.add(drawSuit());
         playerCardT.add(now); dealerCardT.add(now + 130);
         playerCardT.add(now + 260); dealerCardT.add(now + 390);
+        if (ppStake > 0) ppKind = evalPerfectPairs(player.get(0), playerSuits.get(0), player.get(1), playerSuits.get(1));
+        if (tfStake > 0) tfKind = evalTwentyOneThree(player.get(0), playerSuits.get(0), player.get(1), playerSuits.get(1), dealer.get(0), dealerSuits.get(0));
         message = "Your move";
         phase = 1;
         if (score(player) == 21) finishHand();
@@ -210,6 +265,7 @@ public class BlackjackView extends View {
 
     private void hit() {
         player.add(draw());
+        playerSuits.add(drawSuit());
         playerCardT.add(System.currentTimeMillis());
         if (score(player) > 21) finishHand();
         else if (doubled) stand();
@@ -249,9 +305,17 @@ public class BlackjackView extends View {
         else if (ds > 21) { balance += bet * 2; GameSounds.play(getContext(), GameSounds.WIN); message = "Dealer busts!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
         else if (ps > ds) { balance += bet * 2; GameSounds.play(getContext(), GameSounds.WIN); message = "You win!"; lastWin = bet; resultKind = 1; resultAmount = bet; }
         else if (ps == ds) { balance += bet; message = "Push - bet returned"; lastWin = 0; resultKind = 2; resultAmount = 0; }
-        else { GameSounds.play(getContext(), GameSounds.LOSE); message = "Dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
+        else { if (sideNet() <= 0) GameSounds.play(getContext(), GameSounds.LOSE); message = "Dealer wins"; lastWin = 0; resultKind = 0; resultAmount = bet; }
+        // side bets settle on the initial cards ("to 1": stake returned on a win)
+        long sideReturn = (ppKind >= 0 ? ppStake * (PP_MULT[ppKind] + 1) : 0)
+                        + (tfKind >= 0 ? tfStake * (TF_MULT[tfKind] + 1) : 0);
+        long sideNet = sideNet();
+        if (sideReturn > 0) {
+            balance += sideReturn;
+            if (resultKind == 0) GameSounds.play(getContext(), GameSounds.WIN);
+        }
         resultAt = System.currentTimeMillis();
-        if (resultKind == 1 || resultKind == 3) spawnParticles();
+        if (resultKind == 1 || resultKind == 3 || sideNet > 0) spawnParticles();
         stHands++;
         if (resultKind == 1 || resultKind == 3) {
             stWins++;
@@ -277,7 +341,7 @@ public class BlackjackView extends View {
         }
         if (listener != null) {
             if (pBJ && !dBJ) listener.onBigWin(lastWin, bet);
-            listener.onSpinComplete((int) handsDone, lastWin, bet);
+            listener.onSpinComplete((int) handsDone, lastWin + sideNet, bet + ppStake + tfStake);
             listener.saveState();
         }
         if (balance < BETS[0] && listener != null) listener.onOutOfCoins();
@@ -473,7 +537,7 @@ public class BlackjackView extends View {
     private float easeOut(float t) { return 1f - (1f - t) * (1f - t) * (1f - t); }
     private float easeOutBack(float t) { float c = 1.70158f; t -= 1f; return 1f + (c + 1f) * t * t * t + c * t * t; }
 
-    private void drawCard(Canvas cv, int rankIdx, float x, float y, float w, float h, boolean faceDown, float scaleX) {
+    private void drawCard(Canvas cv, int rankIdx, int suitIdx, float x, float y, float w, float h, boolean faceDown, float scaleX) {
         float cx = x + w / 2f;
         float dw = w * Math.abs(scaleX);
         if (dw < 2) return;
@@ -505,7 +569,7 @@ public class BlackjackView extends View {
         p.setStrokeWidth(Math.max(1.5f, dw * 0.014f)); p.setColor(0xFF9C9690);
         cv.drawRoundRect(rf, rad, rad, p);
         p.setStyle(Paint.Style.FILL);
-        int suit = rankIdx % 4;
+        int suit = suitIdx;
         boolean red = suit == 1 || suit == 2;
         int ink = red ? 0xFFC62828 : 0xFF1B1B1B;
         boolean face = rankIdx >= 10; // J Q K
@@ -594,6 +658,43 @@ public class BlackjackView extends View {
         int g = (int) (((color >> 8) & 0xFF) * (1f - f));
         int b = (int) ((color & 0xFF) * (1f - f));
         return a | (r << 16) | (g << 8) | b;
+    }
+
+    private void drawSideSpot(Canvas cv, int w, int h, boolean pp) {
+        float cx = w * (pp ? 0.27f : 0.73f), cy = h * 0.415f, r = w * (pp ? 0.052f : 0.058f);
+        boolean on = pp ? ppOn : tfOn;
+        long stake = pp ? ppStake : tfStake;
+        int kind = pp ? ppKind : tfKind;
+        boolean inHand = phase != 0 && stake > 0;
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(on || inHand ? w * 0.007f : w * 0.004f);
+        p.setColor(on || inHand ? 0xCCFFD54F : 0x44FFD700);
+        cv.drawCircle(cx, cy, r, p);
+        if (on || inHand) {
+            p.setStrokeWidth(2); p.setColor(0x55FFD54F);
+            cv.drawCircle(cx, cy, r * 0.86f, p);
+        }
+        p.setStyle(Paint.Style.FILL);
+        p.setTextAlign(Paint.Align.CENTER);
+        p.setFakeBoldText(true);
+        p.setColor(on || inHand ? 0xFFFFD54F : 0x88FFD700);
+        p.setTextSize(pp ? r * 0.52f : r * 0.40f);
+        cv.drawText(pp ? "PP" : "21+3", cx, cy + (pp ? r * 0.18f : r * 0.14f), p);
+        p.setFakeBoldText(false);
+        // label under the spot
+        String lbl; int col;
+        if (inHand) {
+            if (kind >= 0) { lbl = (pp ? PP_NAMES[kind] : TF_NAMES[kind]) + " +" + (stake * (pp ? PP_MULT[kind] : TF_MULT[kind])); col = 0xFFFFD54F; }
+            else { lbl = "no win"; col = 0xFF7F8FB8; }
+        } else if (on) {
+            int n = sideCount();
+            lbl = "STAKE " + (BETS[betIdx] / n); col = 0xCCFFD54F;
+        } else {
+            lbl = pp ? "x5-x25" : "x5-x100"; col = 0x66FFD700;
+        }
+        p.setTextSize(h * 0.013f); p.setColor(col); p.setFakeBoldText(inHand && kind >= 0);
+        cv.drawText(lbl, cx, cy + r + h * 0.018f, p);
+        p.setFakeBoldText(false);
     }
 
     private void drawChip(Canvas cv, float cx, float cy, float r, int color, String label, boolean selected) {
@@ -904,7 +1005,7 @@ public class BlackjackView extends View {
                 animating = true;
                 hide = ft < 0.5f;
             }
-            drawCard(cv, dealer.get(i), x, y, cw, ch, hide, scaleX);
+            drawCard(cv, dealer.get(i), dealerSuits.get(i), x, y, cw, ch, hide, scaleX);
         }
         if (!dealer.isEmpty()) {
             int ds = phase == 1 ? val(dealer.get(0)) : score(dealer);
@@ -927,7 +1028,7 @@ public class BlackjackView extends View {
                 float tx = px0 + i * cardGap;
                 float sx = w * 0.95f, sy = h * 0.20f;
                 float x = sx + (tx - sx) * te, y = sy + (h * 0.52f - sy) * te;
-                drawCard(cv, player.get(i), x, y, cw, ch, false, 1f);
+                drawCard(cv, player.get(i), playerSuits.get(i), x, y, cw, ch, false, 1f);
             }
             int ps = score(player);
             int bubbleColor = ps > 21 ? 0xFFB71C1C : (ps == 21 ? 0xFF2E7D32 : 0xFF263238);
@@ -943,6 +1044,10 @@ public class BlackjackView extends View {
         p.setStrokeWidth(2); p.setColor(0x40FFD700);
         cv.drawCircle(spotX, spotY, spotR * 1.12f, p);
         p.setStyle(Paint.Style.FILL);
+
+        // ---- side bet spots (PP left, 21+3 right) ----
+        drawSideSpot(cv, w, h, true);
+        drawSideSpot(cv, w, h, false);
         long currentBet = BETS[betIdx] * (doubled ? 2 : 1);
         if (phase != 0) {
             // stacked chips representing current bet
@@ -1056,8 +1161,10 @@ public class BlackjackView extends View {
             p.setFakeBoldText(false);
             p.setColor(0x99FFFFFF); p.setTextSize(h * 0.012f); p.setTextAlign(Paint.Align.CENTER);
             cv.drawText("TAP A CHIP TO SET YOUR BET", w / 2f, h * 0.677f, p);
-            drawPillButton(cv, w * 0.14f, h * 0.80f, w * 0.72f, bh, "D E A L", 0xFF43A047, 0xFF1B5E20,
-                    balance >= BETS[betIdx], pressedBtn == 0, pulse);
+            drawPillButton(cv, w * 0.14f, h * 0.80f, w * 0.72f, bh,
+                    sideCount() > 0 ? "D E A L   \u2022   " + totalWager() : "D E A L",
+                    0xFF43A047, 0xFF1B5E20,
+                    balance >= totalWager(), pressedBtn == 0, pulse);
         } else if (phase == 1) {
             boolean canDouble = player.size() == 2 && balance >= BETS[betIdx];
             drawPillButton(cv, w * 0.05f, h * 0.76f, w * 0.28f, bh, "HIT", 0xFF43A047, 0xFF1B5E20, true, pressedBtn == 1, 0);
@@ -1128,6 +1235,7 @@ public class BlackjackView extends View {
         if (phase == 2 && now >= dealerNextAt) {
             if (score(dealer) < 17) {
                 dealer.add(draw());
+                dealerSuits.add(drawSuit());
                 dealerCardT.add(now);
                 dealerNextAt = now + 650;
             } else settle();
@@ -1289,7 +1397,9 @@ public class BlackjackView extends View {
             int was = pressedBtn; pressedBtn = -1; invalidate();
             if (btn != was || btn < 0) {
                 // chip selection happens on up outside buttons
-                if ((phase == 0 || phase == 3) && !levelUpShowing) selectChipAt(w, h, x, y);
+                if ((phase == 0 || phase == 3) && !levelUpShowing) {
+                    if (!selectSideSpotAt(w, h, x, y)) selectChipAt(w, h, x, y);
+                }
                 return true;
             }
             if (levelUpShowing) {
@@ -1297,7 +1407,7 @@ public class BlackjackView extends View {
                 return true;
             }
             if (phase == 0 || phase == 3) {
-                if (btn == 0 && balance >= BETS[betIdx]) deal();
+                if (btn == 0 && balance >= totalWager()) deal();
             } else if (phase == 1) {
                 if (btn == 1) hit();
                 else if (btn == 2) stand();
@@ -1306,6 +1416,21 @@ public class BlackjackView extends View {
             return true;
         }
         return true;
+    }
+
+    private boolean selectSideSpotAt(int w, int h, float x, float y) {
+        float cy = h * 0.415f;
+        if (Math.hypot(x - w * 0.27f, y - cy) <= w * 0.062f) {
+            ppOn = !ppOn; GameSounds.play(getContext(), GameSounds.CHIP); invalidate();
+            if (listener != null) listener.saveState();
+            return true;
+        }
+        if (Math.hypot(x - w * 0.73f, y - cy) <= w * 0.068f) {
+            tfOn = !tfOn; GameSounds.play(getContext(), GameSounds.CHIP); invalidate();
+            if (listener != null) listener.saveState();
+            return true;
+        }
+        return false;
     }
 
     private int hitButton(int w, int h, float bh, float x, float y) {

@@ -84,9 +84,12 @@ public class DesignPreviewTest {
         // ---- state 2: mid-hand (dealer hole card hidden) ----
         long old = System.currentTimeMillis() - 10000;
         intList(v, "player").clear(); intList(v, "dealer").clear();
+        intList(v, "playerSuits").clear(); intList(v, "dealerSuits").clear();
         longList(v, "playerCardT").clear(); longList(v, "dealerCardT").clear();
         intList(v, "player").add(11); intList(v, "player").add(6);   // Q + 7 = 17
+        intList(v, "playerSuits").add(1); intList(v, "playerSuits").add(3);
         intList(v, "dealer").add(8); intList(v, "dealer").add(4);    // 9 + hidden
+        intList(v, "dealerSuits").add(0); intList(v, "dealerSuits").add(2);
         longList(v, "playerCardT").add(old); longList(v, "playerCardT").add(old);
         longList(v, "dealerCardT").add(old); longList(v, "dealerCardT").add(old);
         setInt(v, "phase", 1);
@@ -97,9 +100,12 @@ public class DesignPreviewTest {
 
         // ---- state 3: blackjack result celebration ----
         intList(v, "player").clear(); intList(v, "dealer").clear();
+        intList(v, "playerSuits").clear(); intList(v, "dealerSuits").clear();
         longList(v, "playerCardT").clear(); longList(v, "dealerCardT").clear();
         intList(v, "player").add(0); intList(v, "player").add(10);   // A + J = blackjack
+        intList(v, "playerSuits").add(0); intList(v, "playerSuits").add(1);
         intList(v, "dealer").add(9); intList(v, "dealer").add(6);    // 10 + 7 = 17
+        intList(v, "dealerSuits").add(2); intList(v, "dealerSuits").add(3);
         longList(v, "playerCardT").add(old); longList(v, "playerCardT").add(old);
         longList(v, "dealerCardT").add(old); longList(v, "dealerCardT").add(old);
         setInt(v, "phase", 3);
