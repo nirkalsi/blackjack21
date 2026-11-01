@@ -66,13 +66,41 @@ public class SideBetsCaptureTest {
         FileOutputStream o = new FileOutputStream("/tmp/frames-bj-sidebets/betting.png");
         bmp.compress(Bitmap.CompressFormat.PNG, 100, o); o.close();
 
-        // state 2: settled hand with a colored pair win and 21+3 no win
+        // state 2: settled hand with a colored pair win and 21+3 no win (three sizes)
+        settleState(v);
+        Bitmap bmp2 = Bitmap.createBitmap(1080, 2243, Bitmap.Config.ARGB_8888);
+        v.draw(new Canvas(bmp2));
+        FileOutputStream o2 = new FileOutputStream("/tmp/frames-bj-sidebets/result.png");
+        bmp2.compress(Bitmap.CompressFormat.PNG, 100, o2); o2.close();
+        assertTrue(new File("/tmp/frames-bj-sidebets/result.png").length() > 20000);
+
+        int[][] sizes = {{720, 1480}, {1080, 1920}};
+        for (int[] sz : sizes) {
+            BlackjackView vr = new BlackjackView(RuntimeEnvironment.getApplication());
+            vr.measure(View.MeasureSpec.makeMeasureSpec(sz[0], View.MeasureSpec.EXACTLY),
+                      View.MeasureSpec.makeMeasureSpec(sz[1], View.MeasureSpec.EXACTLY));
+            vr.layout(0, 0, sz[0], sz[1]);
+            set(vr, "balance", 8_900L);
+            set(vr, "betIdx", 2);
+            set(vr, "ppOn", Boolean.TRUE);
+            set(vr, "tfOn", Boolean.TRUE);
+            settleState(vr);
+            Bitmap br = Bitmap.createBitmap(sz[0], sz[1], Bitmap.Config.ARGB_8888);
+            vr.draw(new Canvas(br));
+            FileOutputStream or = new FileOutputStream("/tmp/frames-bj-sidebets/result_" + sz[0] + "x" + sz[1] + ".png");
+            br.compress(Bitmap.CompressFormat.PNG, 100, or); or.close();
+        }
+    }
+
+    /** Deals, forces player 7h+7d (colored pair) vs dealer Kc+5s then a forced 4h
+     *  draw to 19 (dealer must draw below 17), settles, and freezes all animation
+     *  state for a clean still frame. */
+    private static void settleState(BlackjackView v) throws Exception {
         set(v, "rng", new Random(9));
         Method deal = BlackjackView.class.getDeclaredMethod("deal"); deal.setAccessible(true);
         deal.invoke(v);
         List<Integer> pl = get(v, "player"), dl = get(v, "dealer");
         List<Integer> ps = get(v, "playerSuits"), ds = get(v, "dealerSuits");
-        // force: player 8h 8d (colored pair), dealer Kc + 6s; re-evaluate sides
         pl.set(0, 6); ps.set(0, 1); pl.set(1, 6); ps.set(1, 2);
         dl.set(0, 12); ds.set(0, 3); dl.set(1, 4); ds.set(1, 0);
         // dealer K+5 = 15 must draw (stands on all 17): force the 4 of hearts -> 19
@@ -89,10 +117,5 @@ public class SideBetsCaptureTest {
         set(v, "shownBalance", get(v, "balance")); // complete the balance tween for the still frame
         set(v, "particlesOn", Boolean.FALSE);      // coin burst is a ~1s effect; show the settled table
         set(v, "flipStartAt", System.currentTimeMillis() - 5000);
-        Bitmap bmp2 = Bitmap.createBitmap(1080, 2243, Bitmap.Config.ARGB_8888);
-        v.draw(new Canvas(bmp2));
-        FileOutputStream o2 = new FileOutputStream("/tmp/frames-bj-sidebets/result.png");
-        bmp2.compress(Bitmap.CompressFormat.PNG, 100, o2); o2.close();
-        assertTrue(new File("/tmp/frames-bj-sidebets/result.png").length() > 20000);
     }
 }
