@@ -514,9 +514,25 @@ public class BlackjackView extends View {
     }
 
     private void drawChip(Canvas cv, float cx, float cy, float r, int color, String label, boolean selected) {
+        float edge = r * 0.22f;
         // drop shadow
         p.setStyle(Paint.Style.FILL); p.setColor(0x73000000);
-        cv.drawCircle(cx + r * 0.06f, cy + r * 0.12f, r, p);
+        cv.drawCircle(cx + r * 0.06f, cy + edge + r * 0.12f, r, p);
+        // 3D edge: dark band + stripe marks
+        p.setColor(darken(color, 0.55f));
+        rf.set(cx - r, cy - r + edge, cx + r, cy + r + edge);
+        cv.drawOval(rf, p);
+        p.setColor(0xE6F5F5F5);
+        for (int i = 0; i < 8; i++) {
+            double a = Math.PI * (15 + i * 30) / 180.0;
+            float exx = cx + (float) Math.cos(a) * r * 0.985f;
+            float eyy = cy + edge + (float) Math.sin(a) * r * 0.985f;
+            if (Math.sin(a) > 0.15) {
+                p.setStrokeWidth(r * 0.14f); p.setStyle(Paint.Style.STROKE);
+                cv.drawLine(exx, eyy - edge * 0.55f, exx, eyy + edge * 0.55f, p);
+                p.setStyle(Paint.Style.FILL);
+            }
+        }
         // 3D body: radial gradient, light from top-left
         p.setAlpha(0xFF); p.setShader(new RadialGradient(cx - r * 0.35f, cy - r * 0.4f, r * 1.9f,
                 lighten(color, 0.22f), darken(color, 0.38f), Shader.TileMode.CLAMP));
@@ -809,13 +825,30 @@ public class BlackjackView extends View {
             String text; int topC, botC;
             switch (resultKind) {
                 case 3: text = "BLACKJACK!  +" + resultAmount; topC = 0xFFFFE082; botC = 0xFFFF8F00; break;
-                case 1: text = "YOU WIN  +" + resultAmount; topC = 0xFFA5D6A7; botC = 0xFF2E7D32; break;
+                case 1: text = "YOU WIN  +" + resultAmount; topC = 0xFFD7FFB0; botC = 0xFF43A047; break;
                 case 2: text = "PUSH"; topC = 0xFFEEEEEE; botC = 0xFF9E9E9E; break;
                 default: text = message.toUpperCase(); topC = 0xFFEF9A9A; botC = 0xFFC62828;
             }
             cv.save();
             cv.scale(sc, sc, w / 2f, h * 0.45f);
-            drawFancyText(cv, text, w / 2f, h * 0.45f, h * 0.034f * (resultKind == 3 ? 1.25f : 1f), topC, botC);
+            float tsz = h * 0.034f * (resultKind == 3 ? 1.25f : 1f);
+            // dark glass plaque with gold frame behind the result
+            p.setTextSize(tsz); p.setFakeBoldText(true);
+            float tw = p.measureText(text);
+            p.setFakeBoldText(false);
+            float plW = tw + w * 0.16f, plH = tsz * 1.9f;
+            rf.set(w / 2f - plW / 2f, h * 0.45f - plH * 0.72f, w / 2f + plW / 2f, h * 0.45f + plH * 0.28f);
+            p.setStyle(Paint.Style.FILL);
+            p.setAlpha(0xFF); p.setShader(new LinearGradient(0, rf.top, 0, rf.bottom, 0xE6121F1A, 0xE6040B08, Shader.TileMode.CLAMP));
+            cv.drawRoundRect(rf, plH * 0.42f, plH * 0.42f, p);
+            p.setAlpha(0xFF); p.setShader(null);
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(Math.max(2f, tsz * 0.07f)); p.setColor(0xFFD8B45A);
+            cv.drawRoundRect(rf, plH * 0.42f, plH * 0.42f, p);
+            p.setStrokeWidth(Math.max(1.5f, tsz * 0.03f)); p.setColor(0x77FFE9B0);
+            rf.inset(tsz * 0.09f, tsz * 0.09f);
+            cv.drawRoundRect(rf, plH * 0.36f, plH * 0.36f, p);
+            p.setStyle(Paint.Style.FILL);
+            drawFancyText(cv, text, w / 2f, h * 0.45f, tsz, topC, botC);
             cv.restore();
             if (particlesOn) {
                 float pt = (now - resultAt) / 1000f;
