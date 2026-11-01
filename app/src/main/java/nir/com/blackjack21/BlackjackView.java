@@ -62,6 +62,7 @@ public class BlackjackView extends View {
 
     private float[] texX, texY; private boolean[] texL; // felt texture cache
     private android.graphics.Bitmap bgCache; private int bgW = -1, bgH = -1;
+    private float[] dustX, dustY, dustS, dustV;
     private int levelUpPending = 0;      // level number waiting for celebration
     private long levelUpReward = 0;
     private boolean levelUpShowing = false;
@@ -671,6 +672,26 @@ public class BlackjackView extends View {
         if (bgCache == null || bgW != w || bgH != h) { buildBackground(w, h); bgW = w; bgH = h; }
         cv.drawBitmap(bgCache, 0, 0, null);
 
+        // ambient dust motes drifting through the spotlight
+        if (dustX == null) {
+            java.util.Random dr2 = new java.util.Random(4242L);
+            dustX = new float[16]; dustY = new float[16]; dustS = new float[16]; dustV = new float[16];
+            for (int i = 0; i < 16; i++) { dustX[i] = dr2.nextFloat(); dustY[i] = dr2.nextFloat(); dustS[i] = 0.5f + dr2.nextFloat(); dustV[i] = 0.00012f + dr2.nextFloat() * 0.00025f; }
+        }
+        {
+            boolean anyDust = false;
+            for (int i = 0; i < 16; i++) {
+                float dy = (dustY[i] - now * dustV[i]) % 1f; if (dy < 0) dy += 1f;
+                float dxp = dustX[i] + 0.02f * (float) Math.sin(now / 1700.0 + i * 1.7);
+                float fade = (float) Math.sin(dy * Math.PI);
+                p.setColor(((int) (46 * fade * dustS[i]) << 24) | 0xFFF3D9);
+                cv.drawCircle(dxp * w, dy * h * 0.72f, Math.max(1f, w * 0.0022f * dustS[i]), p);
+                anyDust = true;
+            }
+            if (anyDust) animating = true;
+        }
+
+
         // shoe (deck) at right edge
         drawShoe(cv, w, h);
 
@@ -855,6 +876,22 @@ public class BlackjackView extends View {
             cv.save();
             cv.scale(sc, sc, w / 2f, h * 0.45f);
             float tsz = h * 0.034f * (resultKind == 3 ? 1.25f : 1f);
+            // radiating light rays behind the plaque on wins
+            if (resultKind == 1 || resultKind == 3) {
+                float rayT = Math.min(1f, (now - resultAt) / 900f);
+                int rayN = resultKind == 3 ? 18 : 12;
+                p.setStyle(Paint.Style.STROKE);
+                for (int i = 0; i < rayN; i++) {
+                    double a = Math.PI * 2 * i / rayN + now / 2600.0;
+                    float inn = w * 0.10f, out = inn + w * (0.10f + 0.16f * rayT) * (0.7f + 0.3f * (float) Math.sin(i * 2.3));
+                    int al = (int) (resultKind == 3 ? 90 : 55 * (1f - rayT * 0.5f));
+                    p.setStrokeWidth(w * 0.010f);
+                    p.setColor((al << 24) | 0xFFD700);
+                    cv.drawLine(w / 2f + (float) Math.cos(a) * inn, h * 0.45f + (float) Math.sin(a) * inn * 0.5f,
+                            w / 2f + (float) Math.cos(a) * out, h * 0.45f + (float) Math.sin(a) * out * 0.5f, p);
+                }
+                p.setStyle(Paint.Style.FILL);
+            }
             // dark glass plaque with gold frame behind the result
             p.setTextSize(tsz); p.setFakeBoldText(true);
             float tw = p.measureText(text);
