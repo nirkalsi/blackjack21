@@ -10,6 +10,11 @@ import com.google.android.ump.*;
 
 /** Policy-safe ads: banner always bottom, rewarded only user-initiated. No automatic interstitials. */
 public class AdsManager {
+    // Instrumentation hooks (read by BannerLoadScriptTest; harmless in production).
+    public static volatile long lastBannerLoadedAt = 0;
+    public static volatile String lastBannerError = null;
+    public static volatile String lastBannerUnit = null;
+
     private final Activity act;
     private RewardedAd rewarded;
     private int rewardedRetry = 0;
@@ -46,11 +51,13 @@ public class AdsManager {
         AdView av = new AdView(act);
         av.setAdSize(adaptiveBannerSize());
         av.setAdUnitId(BuildConfig.BANNER_ID);
+        lastBannerUnit = BuildConfig.BANNER_ID;
         box.addView(av);
         av.setAdListener(new AdListener() {
             private int attempts = 0;
-            @Override public void onAdLoaded() { attempts = 0; }
+            @Override public void onAdLoaded() { attempts = 0; lastBannerLoadedAt = System.currentTimeMillis(); }
             @Override public void onAdFailedToLoad(LoadAdError e) {
+                lastBannerError = e.getCode() + ":" + e.getMessage();
                 long delayMs = backoffMs(attempts++);
                 av.postDelayed(() -> {
                     if (adsRemoved || !av.isAttachedToWindow()) return;
