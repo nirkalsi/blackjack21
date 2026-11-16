@@ -23,6 +23,7 @@ public class StoreCaptureScriptTest {
     private int shot = 0;
 
     private void tap(float fx, float fy) {
+        v = CaptureStateProbe.bounds("BlackjackView");
         d.click((int) (v.left + v.width() * fx), (int) (v.top + v.height() * fy));
     }
 
@@ -87,7 +88,9 @@ public class StoreCaptureScriptTest {
 
         // deterministic state: healthy balance, chip 25 selected, first round not yet played
         c.getSharedPreferences("blackjack21", 0).edit().clear()
-                .putString("state", "5000;2;0;0;0;1")
+                .putString("state", "5000;2;0;" + System.currentTimeMillis() + ";0;1;0")
+                .putString("daily_last", new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                        .format(new java.util.Date()))
                 .commit();
 
         android.content.Intent i = c.getPackageManager().getLaunchIntentForPackage("nir.com.blackjack21");
@@ -124,38 +127,73 @@ public class StoreCaptureScriptTest {
                 || d.findObject(By.text("Manage your data")) != null)
             throw new AssertionError("consent overlay still present before capture");
 
-        // measure the game view area (same as GameplayScriptTest)
-        UiObject2 first = d.wait(Until.findObject(By.pkg("nir.com.blackjack21").clazz("android.widget.Button")), 30000);
-        if (first == null) throw new AssertionError("top buttons not found");
-        int dh = d.getDisplayHeight(), dw = d.getDisplayWidth(), top = 0;
-        for (UiObject2 b : d.findObjects(By.pkg("nir.com.blackjack21").clazz("android.widget.Button"))) {
-            Rect r = b.getVisibleBounds();
-            if (r.centerY() < dh / 4) top = Math.max(top, r.bottom);
+        Thread.sleep(1000);
+        assertState("phase", 0);
+        assertState("betIdx", 2);
+        assertState("balance", 5000);
+        
+        tap(0.5f, 0.829f);
+        long dealDeadline = System.currentTimeMillis() + 5000;
+        int dealtPhase;
+        do {
+            dealtPhase = ((Number)CaptureStateProbe.read("BlackjackView", "phase")).intValue();
+            if (dealtPhase == 1 || dealtPhase == 3) break;
+            Thread.sleep(30);
+        } while (System.currentTimeMillis() < dealDeadline);
+        assertState("betIdx", 2);
+        assertState("ppStake", 0);
+        assertState("tfStake", 0);
+        if (dealtPhase == 1) {
+            assertState("balance", 4975);
+            Log.i(TAG, "WAGER_VERIFIED main=25 sides=0 balance=5000->4975");
+            Thread.sleep(900);
+            assertUnobscured();
+            // Stand on actual random cards, without forcing a win.
+            tap(0.5f, 0.789f);
+            awaitPhase(3, 15000);
+        } else if (dealtPhase == 3) {
+            // A natural 21 settles synchronously inside deal(). Do not require an
+            // intermediate balance/phase that the game never exposes to the test.
+            int kind = ((Number)CaptureStateProbe.read("BlackjackView", "resultKind")).intValue();
+            if (kind != 3 && kind != 2) throw new AssertionError("unexpected immediate result " + kind);
+            assertState("balance", kind == 3 ? 5037 : 5000); // game's integer 3:2 return on wager 25
+            Log.i(TAG, "WAGER_VERIFIED natural settlement main=25 sides=0 resultKind=" + kind);
+        } else throw new AssertionError("deal did not reach gameplay/result");
+        assertState("handsDone", 1);
+        if (((Number)CaptureStateProbe.read("BlackjackView", "resultKind")).intValue() < 0)
+            throw new AssertionError("no settled result");
+        Thread.sleep(450); // allow result plaque entrance, inside its 2100ms lifetime
+        assertUnobscured();
+        Log.i(TAG, "RESULT_VERIFIED " + CaptureStateProbe.read("BlackjackView", "message"));
+        shot("settled_result");
+        String foreground = d.getCurrentPackageName();
+        if (!"nir.com.blackjack21".equals(foreground)) throw new AssertionError("foreground=" + foreground);
+        Log.i(TAG, "capture complete: 1 asserted poses");
+    }
+
+    private void assertState(String field, long expected) {
+        Object actual = CaptureStateProbe.read("BlackjackView", field);
+        if (!(actual instanceof Number) || ((Number)actual).longValue() != expected)
+            throw new AssertionError(field + " expected=" + expected + " actual=" + actual);
+    }
+    private void awaitPhase(int expected, long timeout) throws Exception {
+        long until = System.currentTimeMillis() + timeout;
+        while (System.currentTimeMillis() < until) {
+            if (((Number)CaptureStateProbe.read("BlackjackView", "phase")).intValue() == expected) return;
+            Thread.sleep(30);
         }
-        int navId = c.getResources().getIdentifier("navigation_bar_height", "dimen", "android");
-        int nav = navId > 0 ? c.getResources().getDimensionPixelSize(navId) : 0;
-        v = new Rect(0, top, dw, dh - nav);
-
-        Thread.sleep(2500);
-        shot("betting");                    // 1: betting screen, chips + side-bet spots
-
-        tap(0.30f, 0.735f); Thread.sleep(700);   // chip 25
-        tap(0.30f, 0.735f); Thread.sleep(700);   // chip 25 again (stack to 50)
-        shot("bet_placed");                 // 2: stacked bet on the spot
-        tap(0.5f, 0.829f); Thread.sleep(3500);   // DEAL, cards animate
-        shot("dealt");                      // 3: dealt hand, HIT/STAND/DOUBLE visible
-
-        tap(0.19f, 0.789f); Thread.sleep(2800);  // HIT
-        shot("third_card");                 // 4: three-card hand
-        tap(0.5f, 0.789f);                  // STAND, dealer plays
-        Thread.sleep(2500);
-        shot("dealer_plays");               // 5: dealer drawing
-        Thread.sleep(3000);
-        shot("result");                     // 6: result plaque + win state
-
-        String pkg = d.getCurrentPackageName();
-        if (!"nir.com.blackjack21".equals(pkg))
-            throw new AssertionError("foreground=" + pkg + " (unexpected takeover)");
-        Log.i(TAG, "capture complete: 6 shots");
+        throw new AssertionError("phase " + expected + " not reached");
+    }
+    private void assertUnobscured() {
+        if (!"nir.com.blackjack21".equals(d.getCurrentPackageName())
+                || d.findObject(By.textContains("Daily Bonus")) != null
+                || d.findObject(By.textContains("Claim +")) != null
+                || Boolean.TRUE.equals(CaptureStateProbe.read("BlackjackView", "levelUpShowing")))
+            throw new AssertionError("game obscured by modal/overlay");
+        String today = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                .format(new java.util.Date());
+        android.content.Context c = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        if (!today.equals(c.getSharedPreferences("blackjack21", 0).getString("daily_last", "")))
+            throw new AssertionError("daily state changed or local date crossed");
     }
 }
