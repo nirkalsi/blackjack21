@@ -26,41 +26,59 @@ public class StoreCaptureScriptTest {
         d.click((int) (v.left + v.width() * fx), (int) (v.top + v.height() * fy));
     }
 
-    // BJ-only pilot: use Android instrumentation's normal shell capability to write
-    // native PNGs into the Firebase processor's collector directory. No app permission
-    // changes. API36 write/collection end-to-end remains unproven until the pilot.
+    // Plain executable calls only: UiAutomation uses Runtime.exec(String), whose
+    // whitespace tokenizer does not understand shell quotes, pipes or &&.
+    private byte[] shellStage(String stage, String... args) throws Exception {
+        String command = CaptureShellTransport.command(args);
+        Log.i(TAG, "STAGE_START " + stage + " command=" + command);
+        android.os.ParcelFileDescriptor[] fds = InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation().executeShellCommandRwe(command);
+        if (fds == null || fds.length != 3) throw new AssertionError("missing descriptors: " + stage);
+        for (android.os.ParcelFileDescriptor fd : fds)
+            if (fd == null) throw new AssertionError("null descriptor: " + stage);
+        try (java.io.OutputStream stdin = new android.os.ParcelFileDescriptor.AutoCloseOutputStream(fds[1]);
+             java.io.InputStream stdout = new android.os.ParcelFileDescriptor.AutoCloseInputStream(fds[0]);
+             java.io.InputStream stderr = new android.os.ParcelFileDescriptor.AutoCloseInputStream(fds[2])) {
+            stdin.close(); // No script or input is sent. Each command has plain argv only.
+            CaptureShellTransport.Result result = CaptureShellTransport.collect(stdout, stderr);
+            String err = new String(result.stderr, java.nio.charset.StandardCharsets.UTF_8);
+            Log.i(TAG, "STAGE_DONE " + stage + " stdoutBytes=" + result.stdout.length + " stderr=" + err);
+            if (!err.trim().isEmpty()) throw new AssertionError("shell stderr at " + stage + ": " + err);
+            return result.stdout;
+        } catch (Exception e) {
+            throw new AssertionError("shell stage failed: " + stage, e);
+        }
+    }
+
+    // BJ-only native PNG pilot. No new app permissions or services. Storage writes
+    // and Firebase collector behavior still need device proof after transport repair.
     private void shot(String name) throws Exception {
         if (!name.matches("[a-z0-9_]+")) throw new AssertionError("unsafe screenshot name");
         shot++;
         String path = "/sdcard/screenshots/bj_store_" + shot + "_" + name + ".png";
-        String result = d.executeShellCommand("sh -c 'mkdir -p /sdcard/screenshots && "
-                + "screencap -p " + path + " && test -s " + path + " && echo CAPTURE_OK'");
-        if (!"CAPTURE_OK".equals(result.trim()))
-            throw new AssertionError("shell screenshot failed for " + path + ": " + result);
-
-        // Read back through the same shell identity. Check PNG signature and decoded
-        // dimensions rather than treating an exit marker or nonempty file as proof.
-        android.os.ParcelFileDescriptor fd = InstrumentationRegistry.getInstrumentation()
-                .getUiAutomation().executeShellCommand("cat " + path);
-        if (fd == null) throw new AssertionError("no readback descriptor for " + path);
-        try (java.io.InputStream in = new java.io.BufferedInputStream(
-                new android.os.ParcelFileDescriptor.AutoCloseInputStream(fd))) {
-            in.mark(16);
-            byte[] expected = {(byte)137, 80, 78, 71, 13, 10, 26, 10};
-            for (byte b : expected) {
-                if (in.read() != (b & 255)) throw new AssertionError("not PNG: " + path);
-            }
-            in.reset();
-            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
-            bounds.inJustDecodeBounds = true;
-            android.graphics.BitmapFactory.decodeStream(in, null, bounds);
-            if (!"image/png".equals(bounds.outMimeType)
-                    || bounds.outWidth != d.getDisplayWidth()
-                    || bounds.outHeight != d.getDisplayHeight())
-                throw new AssertionError("bad screenshot bounds " + bounds.outWidth + "x"
-                        + bounds.outHeight + " mime=" + bounds.outMimeType + " at " + path);
-            Log.i(TAG, "PNG_VERIFIED " + path + " " + bounds.outWidth + "x" + bounds.outHeight);
-        }
+        shellStage("mkdir_" + shot, "/system/bin/mkdir", "-p", "/sdcard/screenshots");
+        // Remove any stale pose before capture. rm errors are surfaced separately.
+        shellStage("remove_stale_" + shot, "/system/bin/rm", "-f", path);
+        shellStage("screencap_" + shot, "/system/bin/screencap", "-p", path);
+        String count = new String(shellStage("stat_" + shot, "/system/bin/stat", "-c", "%s", path),
+                java.nio.charset.StandardCharsets.UTF_8).trim();
+        long size;
+        try { size = Long.parseLong(count); }
+        catch (NumberFormatException e) { throw new AssertionError("invalid stat size: " + count, e); }
+        if (size <= 8 || size > 24 * 1024 * 1024) throw new AssertionError("invalid PNG size " + size);
+        byte[] png = shellStage("readback_" + shot, "/system/bin/cat", path);
+        if (png.length != size) throw new AssertionError("readback size mismatch for " + path);
+        byte[] signature = {(byte)137, 80, 78, 71, 13, 10, 26, 10};
+        for (int k = 0; k < signature.length; k++)
+            if (png[k] != signature[k]) throw new AssertionError("not PNG: " + path);
+        android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        android.graphics.BitmapFactory.decodeByteArray(png, 0, png.length, bounds);
+        if (!"image/png".equals(bounds.outMimeType)
+                || bounds.outWidth != d.getDisplayWidth() || bounds.outHeight != d.getDisplayHeight())
+            throw new AssertionError("bad PNG bounds " + bounds.outWidth + "x" + bounds.outHeight
+                    + " mime=" + bounds.outMimeType);
+        Log.i(TAG, "PNG_VERIFIED " + path + " bytes=" + size + " " + bounds.outWidth + "x" + bounds.outHeight);
     }
 
     @Test public void captureStoreScreens() throws Exception {
